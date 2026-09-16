@@ -7,7 +7,7 @@ const inputSchema = z.object({
   registrationCode: z.string().startsWith("chur_"),
   deviceId: z.string().min(8).max(120),
   deviceName: z.string().trim().min(1).max(120),
-  platform: z.literal("windows"),
+  platform: z.enum(["windows", "macos"]),
   clientVersion: z.string().trim().min(1).max(30).default(COLLECTOR_VERSION),
 });
 

@@ -17,7 +17,7 @@ try {
   throw "当前 PowerShell 无法加载 Windows DPAPI。请使用 Windows PowerShell 5.1 或 PowerShell 7 后重试；注册码尚未使用。"
 }
 
-Write-Host "下载 Chorify Token 采集器 v0.2.3..."
+Write-Host "下载 Chorify Token 采集器 v0.3.0..."
 $collectorSource = ([string](Invoke-RestMethod -Method Get -Uri "$BaseUrl/token-usage/collector.ps1")).TrimStart([char]0xFEFF)
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 [IO.File]::WriteAllText($collectorPath,[string]$collectorSource,$utf8Bom)
@@ -32,7 +32,7 @@ if ($existingConfig -and $existingConfig.encryptedSecret -and ([string]$existing
     $savedSecretBytes = [Security.Cryptography.ProtectedData]::Unprotect($savedEncrypted,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)
     $savedSecret = [Text.Encoding]::UTF8.GetString($savedSecretBytes)
     $probeHeaders = @{ Authorization = "Bearer $savedSecret" }
-    $probe = @{clientVersion="0.2.3";status="HEALTHY";error=$null} | ConvertTo-Json
+    $probe = @{clientVersion="0.3.0";status="HEALTHY";error=$null} | ConvertTo-Json
     Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/v1/usage-collectors/heartbeat" -Headers $probeHeaders -ContentType "application/json" -Body $probe | Out-Null
     $encryptedSecret = [string]$existingConfig.encryptedSecret
     $reuseExisting = $true
@@ -45,14 +45,14 @@ if ($existingConfig -and $existingConfig.encryptedSecret -and ([string]$existing
 if ($reuseExisting) {
   Write-Host "✓ 检测到本机已注册设备，将更新采集器并继续首次扫描。"
 } else {
-  $body = @{ registrationCode=$RegistrationCode; deviceId=$deviceId; deviceName=$env:COMPUTERNAME; platform="windows"; clientVersion="0.2.3" } | ConvertTo-Json
+  $body = @{ registrationCode=$RegistrationCode; deviceId=$deviceId; deviceName=$env:COMPUTERNAME; platform="windows"; clientVersion="0.3.0" } | ConvertTo-Json
   $registered = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/v1/usage-collectors/register" -ContentType "application/json" -Body $body
   $secretBytes = [Text.Encoding]::UTF8.GetBytes([string]$registered.deviceSecret)
   $encrypted = [Security.Cryptography.ProtectedData]::Protect($secretBytes,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)
   $encryptedSecret = [Convert]::ToBase64String($encrypted)
   Write-Host "✓ 已完成设备注册。"
 }
-@{ baseUrl=$BaseUrl; deviceId=$deviceId; encryptedSecret=$encryptedSecret; clientVersion="0.2.3"; statePath=$statePath } | ConvertTo-Json | Set-Content -Encoding UTF8 $configPath
+@{ baseUrl=$BaseUrl; deviceId=$deviceId; encryptedSecret=$encryptedSecret; clientVersion="0.3.0"; statePath=$statePath } | ConvertTo-Json | Set-Content -Encoding UTF8 $configPath
 Write-Host "✓ 配置保存在 $configPath"
 
 $action = 'powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $collectorPath + '" -Quiet'
@@ -66,7 +66,7 @@ if ($LASTEXITCODE -ne 0) {
   throw "首次扫描失败，错误日志：$logPath"
 }
 Write-Host "===== 安装自检 ====="
-Write-Host "客户端版本：0.2.3"
+Write-Host "客户端版本：0.3.0"
 $task = Get-ScheduledTask -TaskName ChorifyUsageCollector -ErrorAction SilentlyContinue
 Write-Host "后台任务：$($task.State)（每 30 分钟）"
 Write-Host "✓ 全部成功！后台任务将持续上报 Codex 与 Claude Code Token 汇总。"

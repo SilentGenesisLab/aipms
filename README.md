@@ -69,8 +69,8 @@ Codex 在个人 API Key 授权范围内读取和执行
 
 - 项目成员可设置当前项目内的显示名、头像、岗位、职责和介绍，不修改全局账户资料；
 - 团队“个人信息”汇总当前团队的需求提出与闭环、本周完成、当前任务和待验收任务；
-- 支持 Windows 采集器统计 Codex 与 Claude Code 的输入、输出、缓存和推理 Token；
-- 一次性安装注册码 10 分钟有效，设备凭据使用 Windows DPAPI 保护；
+- 支持 Windows 与 macOS 采集器统计 Codex 与 Claude Code 的输入、输出、缓存和推理 Token；
+- 一次性安装注册码 10 分钟有效，设备凭据分别使用 Windows DPAPI 与 macOS Keychain 保护；
 - 采集器每 30 分钟增量上报，只上传用量汇总，不上传提示词、聊天正文、代码、文件内容或密钥；
 - Token 是成员个人全部 AI 工具用量，不归因到当前项目。
 
@@ -128,9 +128,9 @@ Codex 在个人 API Key 授权范围内读取和执行
 
 ## Token 用量采集
 
-登录后进入“团队管理”，打开团队详情的“个人信息”，点击“接入 Token 统计”，复制页面生成的 PowerShell 命令并在本人 Windows 电脑中执行。命令中的一次性注册码只能使用一次，安装完成后持久设备凭据会加密保存在 `%USERPROFILE%\\.chorify-usage\\config.json`，并注册每 30 分钟运行一次的 `ChorifyUsageCollector` 计划任务。
+登录后进入“团队管理”，打开团队详情的“个人信息”，点击“接入 Token 统计”，选择 Windows 或 macOS 后复制对应命令。一次性注册码只能在一台设备上使用一次：Windows 使用 PowerShell、DPAPI 和 `ChorifyUsageCollector` 计划任务；macOS 使用“终端”、登录钥匙串和 `~/Library/LaunchAgents/cn.sligenai.chorify-usage.plist`，两端都每 30 分钟增量上报一次。
 
-公开安装脚本地址为 `https://aipms.sligenai.cn/token-usage/install.ps1`。请始终从项目页面生成完整安装命令，不要手工共享注册码。用户可以在个人信息页面查看设备健康状态或撤销设备；撤销后该设备立即无法继续上报。
+公开安装脚本地址为 `https://aipms.sligenai.cn/token-usage/install.ps1`（Windows）和 `https://aipms.sligenai.cn/token-usage/install.sh`（macOS）。macOS 端要求 Node.js 18+；采集程序位于 `~/.chorify-usage/collector.mjs`，扫描 `~/.codex/sessions` 与 `~/.claude/projects`，仅上传 Token、会话数和活跃时长汇总。请始终从项目页面生成完整安装命令，不要手工共享注册码。用户可以在个人信息页面查看设备健康状态或撤销设备；撤销后该设备立即无法继续上报。
 
 ## 开发验证
 

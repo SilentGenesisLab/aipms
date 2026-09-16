@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const script = String.raw`param([switch]$Quiet)
 $ErrorActionPreference = "Stop"
-$collectorVersion = "0.2.3"
+$collectorVersion = "0.3.0"
 $stopwatch = [Diagnostics.Stopwatch]::StartNew()
 try {
   try { Add-Type -AssemblyName System.Security.Cryptography.ProtectedData -ErrorAction Stop } catch { Add-Type -AssemblyName System.Security -ErrorAction Stop }

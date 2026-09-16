@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { GET as getCollectorScript } from "@/app/token-usage/collector.ps1/route";
 import { GET as getInstallerScript } from "@/app/token-usage/install.ps1/route";
+import { GET as getMacCollectorScript } from "@/app/token-usage/collector.mjs/route";
+import { GET as getMacInstallerScript } from "@/app/token-usage/install.sh/route";
 import { COLLECTOR_VERSION, createCollectorSecret, hashCollectorSecret, safeHashEqual } from "@/lib/usage-collector";
 
 describe("usage collector credentials", () => {
@@ -44,5 +46,25 @@ describe("usage collector credentials", () => {
     expect(collector).not.toContain("Measure-Object -Property activeSeconds");
     expect(collector).not.toContain("Measure-Object -Property sessions");
     expect(collector).toContain("foreach($event in $events)");
+  });
+
+  it("serves a macOS collector that scans the native Codex and Claude locations", async () => {
+    const collector = await (await getMacCollectorScript()).text();
+
+    expect(collector).toContain(`const VERSION = "${COLLECTOR_VERSION}"`);
+    expect(collector).toContain('join(homedir(), ".codex", "sessions")');
+    expect(collector).toContain('join(homedir(), ".claude", "projects")');
+    expect(collector).toContain('execFileSync("/usr/bin/security"');
+    expect(collector).not.toContain("prompt");
+  });
+
+  it("installs the macOS collector as a user LaunchAgent with Keychain credentials", async () => {
+    const installer = await (await getMacInstallerScript()).text();
+
+    expect(installer).toContain('PLIST_DIR="$HOME/Library/LaunchAgents"');
+    expect(installer).toContain("<key>StartInterval</key><integer>1800</integer>");
+    expect(installer).toContain("launchctl bootstrap");
+    expect(installer).toContain("security add-generic-password -U -T /usr/bin/security");
+    expect(installer).toContain('platform:\"macos\"');
   });
 });

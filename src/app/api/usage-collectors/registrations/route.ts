@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     return created;
   });
   const baseUrl = publicBaseUrl(request);
-  const installCommand = `powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${baseUrl}/token-usage/install.ps1'))) '${baseUrl}' '${code}'"`;
-  return NextResponse.json({ registrationId: registration.id, expiresAt, installCommand });
+  const windowsCommand = `powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '${baseUrl}/token-usage/install.ps1'))) '${baseUrl}' '${code}'"`;
+  const macCommand = `curl -fsSL '${baseUrl}/token-usage/install.sh' | bash -s -- '${baseUrl}' '${code}'`;
+  return NextResponse.json({ registrationId: registration.id, expiresAt, installCommand: windowsCommand, windowsCommand, macCommand });
 }
