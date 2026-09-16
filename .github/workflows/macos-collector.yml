@@ -1,0 +1,29 @@
+name: macOS collector validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, uat]
+    paths:
+      - "src/app/token-usage/**"
+      - "src/lib/usage-collector*"
+      - "scripts/validate-macos-collector.ts"
+      - ".github/workflows/macos-collector.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test -- --run src/lib/usage-collector.test.ts
+      - run: npm run test:mac-collector
