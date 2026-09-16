@@ -3,7 +3,7 @@ import { GET as getCollectorScript } from "@/app/token-usage/collector.ps1/route
 import { GET as getInstallerScript } from "@/app/token-usage/install.ps1/route";
 import { GET as getMacCollectorScript } from "@/app/token-usage/collector.mjs/route";
 import { GET as getMacInstallerScript } from "@/app/token-usage/install.sh/route";
-import { COLLECTOR_VERSION, createCollectorSecret, hashCollectorSecret, safeHashEqual } from "@/lib/usage-collector";
+import { COLLECTOR_VERSION, MAC_COLLECTOR_VERSION, createCollectorSecret, hashCollectorSecret, safeHashEqual } from "@/lib/usage-collector";
 
 describe("usage collector credentials", () => {
   it("creates purpose-specific opaque secrets", () => {
@@ -48,13 +48,15 @@ describe("usage collector credentials", () => {
     expect(collector).toContain("foreach($event in $events)");
   });
 
-  it("serves a macOS collector that scans the native Codex and Claude locations", async () => {
+  it("serves a zero-dependency macOS collector that scans Codex and Claude locations", async () => {
     const collector = await (await getMacCollectorScript()).text();
 
-    expect(collector).toContain(`const VERSION = "${COLLECTOR_VERSION}"`);
-    expect(collector).toContain('join(homedir(), ".codex", "sessions")');
-    expect(collector).toContain('join(homedir(), ".claude", "projects")');
-    expect(collector).toContain('execFileSync("/usr/bin/security"');
+    expect(collector).toContain(`var VERSION = "${MAC_COLLECTOR_VERSION}"`);
+    expect(collector).toContain('home + "/.codex/sessions"');
+    expect(collector).toContain('home + "/.claude/projects"');
+    expect(collector).toContain('ObjC.import("Foundation")');
+    expect(collector).not.toContain('from "node:');
+    expect(collector).not.toContain("require(");
     expect(collector).not.toContain("prompt");
   });
 
@@ -65,6 +67,10 @@ describe("usage collector credentials", () => {
     expect(installer).toContain("<key>StartInterval</key><integer>1800</integer>");
     expect(installer).toContain("launchctl bootstrap");
     expect(installer).toContain("security add-generic-password -U -T /usr/bin/security");
-    expect(installer).toContain('platform:\"macos\"');
+    expect(installer).toContain("/usr/bin/osascript -l JavaScript");
+    expect(installer).toContain("<string>/bin/bash</string>");
+    expect(installer).toContain("无需 Node.js");
+    expect(installer).not.toContain("command -v node");
+    expect(installer).not.toContain("$NODE_PATH");
   });
 });

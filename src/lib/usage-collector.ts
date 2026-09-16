@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export const COLLECTOR_VERSION = "0.3.0";
+export const MAC_COLLECTOR_VERSION = "0.4.0";
 
 export function hashCollectorSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");

@@ -130,7 +130,7 @@ Codex 在个人 API Key 授权范围内读取和执行
 
 登录后进入“团队管理”，打开团队详情的“个人信息”，点击“接入 Token 统计”，选择 Windows 或 macOS 后复制对应命令。一次性注册码只能在一台设备上使用一次：Windows 使用 PowerShell、DPAPI 和 `ChorifyUsageCollector` 计划任务；macOS 使用“终端”、登录钥匙串和 `~/Library/LaunchAgents/cn.sligenai.chorify-usage.plist`，两端都每 30 分钟增量上报一次。
 
-公开安装脚本地址为 `https://aipms.sligenai.cn/token-usage/install.ps1`（Windows）和 `https://aipms.sligenai.cn/token-usage/install.sh`（macOS）。macOS 端要求 Node.js 18+；采集程序位于 `~/.chorify-usage/collector.mjs`，扫描 `~/.codex/sessions` 与 `~/.claude/projects`，仅上传 Token、会话数和活跃时长汇总。请始终从项目页面生成完整安装命令，不要手工共享注册码。用户可以在个人信息页面查看设备健康状态或撤销设备；撤销后该设备立即无法继续上报。
+公开安装脚本地址为 `https://aipms.sligenai.cn/token-usage/install.ps1`（Windows）和 `https://aipms.sligenai.cn/token-usage/install.sh`（macOS）。macOS 端无需 Node.js 或管理员权限，使用系统自带的 Bash、JavaScript for Automation、Keychain 与 LaunchAgent；采集程序位于 `~/.chorify-usage`，扫描 `~/.codex/sessions` 与 `~/.claude/projects`，仅上传 Token、会话数和活跃时长汇总。请始终从项目页面生成完整安装命令，不要手工共享注册码。用户可以在个人信息页面查看设备健康状态或撤销设备；撤销后该设备立即无法继续上报。
 
 ## 开发验证
 
