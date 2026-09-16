@@ -111,6 +111,7 @@ function listJsonl(root) {
     var item = enumerator.nextObject;
     if (!item) break;
     var relative = ObjC.unwrap(item);
+    if (typeof relative !== "string") break;
     if (relative.slice(-6) === ".jsonl") files.push(root + "/" + relative);
   }
   return files;
