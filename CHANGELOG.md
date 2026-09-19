@@ -17,6 +17,7 @@
 - 新增 Windows 安装入口 `/cli/install.ps1`，以 PowerShell 实现与 Bash 版对等的安装流程：CLI 本体装在 `%USERPROFILE%\.aipms\aipms.ps1`，并在 `%USERPROFILE%\.local\bin` 生成 `aipms.cmd` 代理、写入用户 PATH，cmd.exe 与 PowerShell 都能直接调用。凭据文件在 Windows 上用文件 ACL 限制为当前用户。
 - 新增 `/cli/ps1`，提供 PowerShell 版 CLI 本体，子命令与 Bash 版逐一对应。
 - `/cli` 及其全部子路径加入公开路由白名单，安装前无需登录即可获取。
+- `aipms context` 新增 `--project`、`--status`、`--fields`、`--limit` 四个参数：按项目（id 或 code）与状态在服务端过滤，并可把返回字段投影到指定的几项；响应新增 `total` 表示过滤后命中的总数。此前 `context` 固定返回本人全部待办的完整字段，实测 35 条任务约 53 KB，调用方无法内联阅读，只能落盘后二次处理。两个平台的 CLI 均已支持，传参顺序不限。
 
 ### 修复
 

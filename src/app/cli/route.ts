@@ -161,7 +161,20 @@ case "$cmd" in
     [ "$json" -eq 1 ] && printf '}}\n'
     [ "$failed" -eq 0 ]
     ;;
-  context) request GET /api/v1/me/work-context ;;
+  context)
+    query=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --project|--status|--fields|--limit)
+          [ "$#" -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }
+          query="$query&\${1#--}=$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    path="/api/v1/me/work-context"
+    [ -n "$query" ] && path="$path?\${query#&}"
+    request GET "$path"
+    ;;
   list)
     resource="\${1:?resource required}"; project="\${2:-}"; path="$(resource_path "$resource" "$project")"
     request GET "$path"
@@ -195,6 +208,7 @@ case "$cmd" in
 AI PMS CLI
   aipms auth login [--api-key <key>] [--base-url URL]
   aipms doctor [--json] | context
+  aipms context [--project <id|code>] [--status A,B] [--fields f1,f2] [--limit N]
   aipms list projects
   aipms list tasks <project-id>
   aipms get tasks <project-id> <task-id>

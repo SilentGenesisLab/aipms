@@ -43,6 +43,20 @@ export AIPMS_BASE_URL='${origin}'
 aipms context
 \`\`\`
 
+## 收窄 context 的输出
+
+\`context\` 默认返回本人全部待办的完整字段。任务多时（几十条可以达到数十 KB）用参数收窄，避免把整份 JSON 落盘再二次处理：
+
+\`\`\`bash
+aipms context --status PENDING_ACCEPTANCE                    # 只看待验收
+aipms context --project <id|code> --status TODO,IN_PROGRESS  # 按项目和状态
+aipms context --fields code,title,status,dueAt --limit 20    # 只取需要的字段
+\`\`\`
+
+\`total\` 是过滤后命中的总数，\`tasks\` 是本次返回的条目（受 \`limit\` 限制）。
+
+另外，\`aipms list tasks <project-id>\` 返回的每条任务已经带有 \`status\`、\`submittedAt\` 和 \`_count.reports\`（汇报数），所以「哪些待验收、有没有交报告」一次调用就能看完，不必逐条拉 \`task-context\`。
+
 ## 常用操作
 
 \`\`\`bash

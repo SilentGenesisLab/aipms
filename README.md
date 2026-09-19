@@ -147,6 +147,8 @@ aipms list projects
 aipms list tasks <project-id>
 ```
 
+`context` 默认返回本人全部待办的完整字段，任务多时用 `--status`、`--project`、`--fields`、`--limit` 收窄，例如 `aipms context --status PENDING_ACCEPTANCE --fields code,title,dueAt`。`list tasks <project-id>` 的每条任务已含 `status`、`submittedAt` 与 `_count.reports`，判断「哪些待验收、有没有交报告」一次调用即可。
+
 Windows PowerShell 使用：
 
 ```powershell

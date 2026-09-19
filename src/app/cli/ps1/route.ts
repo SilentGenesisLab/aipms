@@ -131,6 +131,7 @@ function Show-AipmsHelp {
   Write-Output "AI PMS CLI (Windows PowerShell)"
   Write-Output "  aipms auth login [--api-key <key>] [--base-url URL]"
   Write-Output "  aipms doctor [--json] | context"
+  Write-Output "  aipms context [--project <id|code>] [--status A,B] [--fields f1,f2] [--limit N]"
   Write-Output "  aipms list projects"
   Write-Output "  aipms list tasks <project-id>"
   Write-Output "  aipms get tasks <project-id> <task-id>"
@@ -222,7 +223,20 @@ switch ($Command) {
     }
     if ($failed) { exit 1 }
   }
-  "context" { Invoke-AipmsRequest -Method GET -Path "/api/v1/me/work-context" }
+  "context" {
+    $query = ""
+    $i = 0
+    while ($i -lt $Rest.Count) {
+      if ($Rest[$i] -in @("--project", "--status", "--fields", "--limit")) {
+        if (($i + 1) -ge $Rest.Count) { Write-AipmsError ($Rest[$i] + " needs a value"); exit 2 }
+        $query = $query + "&" + $Rest[$i].Substring(2) + "=" + $Rest[$i + 1]
+        $i += 2
+      } else { $i++ }
+    }
+    $path = "/api/v1/me/work-context"
+    if ($query) { $path = $path + "?" + $query.Substring(1) }
+    Invoke-AipmsRequest -Method GET -Path $path
+  }
   "list" {
     if ($Rest.Count -lt 1) { Write-AipmsError "resource required"; exit 2 }
     $project = if ($Rest.Count -gt 1) { $Rest[1] } else { "" }
