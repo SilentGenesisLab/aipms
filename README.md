@@ -126,6 +126,36 @@ Codex 在个人 API Key 授权范围内读取和执行
 
 完整 Key 不应进入仓库、日志或文档；暴露后请立即撤销并重新创建。
 
+## AIPMS CLI 与 Agent Skill
+
+安装脚本会自动检测运行环境：Linux/macOS 使用 Bash，Windows 使用 PowerShell。它不会自动注册设备、创建租户或生成 API Key，而是打开网站让用户创建或复制 API Key 后粘贴到隐藏输入中；配置保存到执行安装命令时的当前目录 `.aipms/config`（权限 600），skill 保存到 `.agents/skills/aipms-project-operations/SKILL.md`。
+
+使用示例：
+
+```bash
+mkdir my-aipms-workspace
+cd my-aipms-workspace
+curl -fsSL https://aipms.sligenai.cn/cli | bash
+export PATH="$HOME/.local/bin:$PATH"
+
+# 安装器会打开网站并隐藏读取 API Key，然后自动执行一次能力检查
+aipms doctor --json
+aipms context
+aipms list projects
+aipms list tasks <project-id>
+```
+
+Windows PowerShell 使用：
+
+```powershell
+irm https://aipms.sligenai.cn/cli/install.ps1 | iex
+aipms doctor --json
+```
+
+安装完成后，当前目录会生成 `.aipms/config` 和 `.agents/skills/aipms-project-operations/SKILL.md`。不要提交 `.aipms/config` 到 Git。
+
+`doctor --json` 会探测身份、工作上下文、项目、团队、通知和审计日志等只读能力。403 仅表示当前 API Key 没有对应权限，不会被安装器绕过。
+
 ## Token 用量采集
 
 登录后进入“团队管理”，打开团队详情的“个人信息”，点击“接入 Token 统计”，选择 Windows 或 macOS 后复制对应命令。一次性注册码只能在一台设备上使用一次：Windows 使用 PowerShell、DPAPI 和 `ChorifyUsageCollector` 计划任务；macOS 使用“终端”、登录钥匙串和 `~/Library/LaunchAgents/cn.sligenai.chorify-usage.plist`，两端都每 30 分钟增量上报一次。

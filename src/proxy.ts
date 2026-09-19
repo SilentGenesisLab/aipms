@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/members" || pathname.startsWith("/members/")) return NextResponse.redirect(new URL(pathname.replace(/^\/members/, "/teams"), request.url), 308);
   const isInvitePage = pathname.startsWith("/invite/");
   const isSharePage = pathname.startsWith("/share/");
-  const isPublic = PUBLIC_PAGES.has(pathname) || pathname === "/cli" || pathname === "/cli/guide" || pathname.startsWith("/token-usage/") || isInvitePage || isSharePage || pathname.startsWith("/api/invites/") || pathname.startsWith("/api/shares/") || PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const isPublic = PUBLIC_PAGES.has(pathname) || pathname === "/cli" || pathname === "/cli/guide" || pathname === "/cli/skill" || pathname === "/cli/install.ps1" || pathname.startsWith("/token-usage/") || isInvitePage || isSharePage || pathname.startsWith("/api/invites/") || pathname.startsWith("/api/shares/") || PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const userId = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (!userId && !isPublic) {

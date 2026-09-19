@@ -2,25 +2,41 @@ function cliScript(baseUrl: string) {
   return `#!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_DIR="\${CHORIFY_HOME:-$HOME/.chorify}"
-BIN_DIR="\${CHORIFY_BIN_DIR:-$HOME/.local/bin}"
+INSTALL_DIR="\${AIPMS_HOME:-$PWD/.aipms}"
+BIN_DIR="\${AIPMS_BIN_DIR:-$HOME/.local/bin}"
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 chmod 700 "$INSTALL_DIR" 2>/dev/null || true
+SKILL_DIR="\${AIPMS_SKILL_DIR:-$PWD/.agents/skills/aipms-project-operations}"
 
-cat > "$BIN_DIR/chorify" <<'CHORIFY_CLI'
+open_site() {
+  url="$1"
+  if command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 &
+  elif command -v open >/dev/null 2>&1; then open "$url" >/dev/null 2>&1 &
+  elif command -v start >/dev/null 2>&1; then start "" "$url" >/dev/null 2>&1 &
+  else echo "Open this URL in your browser: $url"; fi
+}
+
+install_skill() {
+  mkdir -p "$SKILL_DIR"
+  curl -fsSL "$BASE_URL/cli/skill" -o "$SKILL_DIR/SKILL.md"
+  chmod 600 "$SKILL_DIR/SKILL.md" 2>/dev/null || true
+  echo "Skill installed: $SKILL_DIR/SKILL.md"
+}
+
+cat > "$BIN_DIR/aipms" <<'AIPMS_CLI'
 #!/usr/bin/env bash
 set -euo pipefail
-CONFIG_FILE="\${CHORIFY_CONFIG:-$HOME/.chorify/config}"
+CONFIG_FILE="\${AIPMS_CONFIG:-$PWD/.aipms/config}"
 DEFAULT_BASE_URL="${baseUrl}"
 
 read_config() {
   BASE_URL="$DEFAULT_BASE_URL"
-  API_KEY="\${CHORIFY_API_KEY:-}"
+  API_KEY="\${AIPMS_API_KEY:-}"
   if [ -f "$CONFIG_FILE" ]; then
     # shellcheck disable=SC1090
     . "$CONFIG_FILE"
   fi
-  BASE_URL="\${CHORIFY_BASE_URL:-$BASE_URL}"
+  BASE_URL="\${AIPMS_BASE_URL:-$BASE_URL}"
 }
 
 save_config() {
@@ -30,7 +46,7 @@ save_config() {
 }
 
 need_auth() {
-  [ -n "$API_KEY" ] || { echo "Not authenticated. Run: chorify auth login --api-key <key>" >&2; exit 2; }
+  [ -n "$API_KEY" ] || { echo "Not authenticated. Run: aipms auth login --api-key <key>" >&2; exit 2; }
 }
 
 request() {
@@ -41,6 +57,15 @@ request() {
   if [ -n "$idem" ]; then args+=(-H "Idempotency-Key: $idem"); fi
   curl "\${args[@]}" "$BASE_URL$path"
   echo
+}
+
+probe() {
+  path="$1"; label="$2"
+  tmp="$(mktemp)"
+  code="$(curl -sS -o "$tmp" -w '%{http_code}' "\${HEADER_ARGS[@]}" "$BASE_URL$path" || printf '000')"
+  rm -f "$tmp"
+  printf '%s\t%s\n' "$label" "$code"
+  [ "$code" != "000" ]
 }
 
 resource_path() {
@@ -66,17 +91,53 @@ case "$cmd" in
         while [ "$#" -gt 0 ]; do
           case "$1" in --api-key) key="$2"; shift 2;; --base-url) base="\${2%/}"; shift 2;; *) shift;; esac
         done
-        [ -n "$key" ] || { echo "--api-key is required" >&2; exit 2; }
+        if [ -z "$key" ]; then
+          open_site "$base"
+          printf 'Paste the API Key shown by the website (input hidden): '
+          read -r -s key; echo
+        fi
+        key="$(printf '%s' "$key" | tr -d '\r\n')"
+        [ -n "$key" ] || { echo "API Key is required" >&2; exit 2; }
         save_config "$base" "$key"; BASE_URL="$base"; API_KEY="$key"
         request GET /api/v1/me >/dev/null
         echo "Authenticated with $base"
         ;;
       logout) rm -f "$CONFIG_FILE"; echo "Local credentials removed" ;;
       status) request GET /api/v1/me ;;
-      *) echo "Usage: chorify auth login --api-key <key> [--base-url URL] | logout | status" >&2; exit 2 ;;
+      *) echo "Usage: aipms auth login --api-key <key> [--base-url URL] | logout | status" >&2; exit 2 ;;
     esac
     ;;
-  doctor) request GET /api/v1/me ;;
+  doctor)
+    json=0; [ "\${1:-}" = "--json" ] && json=1
+    read_config; need_auth
+    HEADER_ARGS=(-H "Authorization: Bearer $API_KEY" -H 'Accept: application/json')
+    checks=(
+      "/api/v1/me|identity"
+      "/api/v1/me/work-context|work-context"
+      "/api/v1/projects|projects"
+      "/api/v1/teams|teams"
+      "/api/v1/notifications|notifications"
+      "/api/v1/audit-logs|audit-logs"
+    )
+    failed=0; first=1
+    [ "$json" -eq 1 ] && printf '{"baseUrl":"%s","checks":{' "$BASE_URL"
+    for item in "\${checks[@]}"; do
+      path="\${item%%|*}"; label="\${item##*|}"
+      result="$(probe "$path" "$label")" || true
+      code="\${result##*$'\t'}"
+      [ "$code" = "000" ] && failed=1
+      if [ "$json" -eq 1 ]; then
+        [ "$first" -eq 1 ] || printf ','
+        first=0
+        printf '"%s":%s' "$label" "$code"
+      else
+        printf '%s: HTTP %s\n' "$label" "$code"
+      fi
+      [ "$label" = "identity" ] && [[ "$code" != 2* ]] && failed=1
+    done
+    [ "$json" -eq 1 ] && printf '}}\n'
+    [ "$failed" -eq 0 ]
+    ;;
   context) request GET /api/v1/me/work-context ;;
   list)
     resource="\${1:?resource required}"; project="\${2:-}"; path="$(resource_path "$resource" "$project")"
@@ -89,51 +150,69 @@ case "$cmd" in
     ;;
   create)
     resource="\${1:?resource required}"; project="\${2:-}"; json="\${3:?JSON body required}"
-    request POST "$(resource_path "$resource" "$project")" "$json" "chorify-$(date +%s)-$RANDOM"
+    request POST "$(resource_path "$resource" "$project")" "$json" "aipms-$(date +%s)-$RANDOM"
     ;;
   update)
     resource="\${1:?resource required}"; project="\${2:-}"; id="\${3:?id required}"; json="\${4:?JSON body required}"
-    request PATCH "$(resource_path "$resource" "$project")/$id" "$json" "chorify-$(date +%s)-$RANDOM"
+    request PATCH "$(resource_path "$resource" "$project")/$id" "$json" "aipms-$(date +%s)-$RANDOM"
     ;;
   delete)
     resource="\${1:?resource required}"; project="\${2:-}"; id="\${3:?id required}"
-    request DELETE "$(resource_path "$resource" "$project")/$id" "" "chorify-$(date +%s)-$RANDOM"
+    request DELETE "$(resource_path "$resource" "$project")/$id" "" "aipms-$(date +%s)-$RANDOM"
     ;;
   task-context) request GET "/api/v1/tasks/\${1:?task id required}/context" ;;
-  task-report) request POST "/api/v1/tasks/\${1:?task id required}/reports" "\${2:?JSON body required}" "chorify-$(date +%s)-$RANDOM" ;;
-  task-accept) request POST "/api/v1/tasks/\${1:?task id required}/acceptances" "\${2:?JSON body required}" "chorify-$(date +%s)-$RANDOM" ;;
+  task-report) request POST "/api/v1/tasks/\${1:?task id required}/reports" "\${2:?JSON body required}" "aipms-$(date +%s)-$RANDOM" ;;
+  task-accept) request POST "/api/v1/tasks/\${1:?task id required}/acceptances" "\${2:?JSON body required}" "aipms-$(date +%s)-$RANDOM" ;;
   raw)
     method="\${1:?method required}"; path="\${2:?path required}"; data="\${3:-}"
-    request "$method" "$path" "$data" "chorify-$(date +%s)-$RANDOM"
+    request "$method" "$path" "$data" "aipms-$(date +%s)-$RANDOM"
     ;;
   help|--help|-h)
     cat <<'HELP'
-Chorify CLI
-  chorify auth login --api-key <key> [--base-url URL]
-  chorify doctor | context
-  chorify list projects
-  chorify list tasks <project-id>
-  chorify get tasks <project-id> <task-id>
-  chorify create tasks <project-id> '{"title":"..."}'
-  chorify update tasks <project-id> <task-id> '{"status":"IN_PROGRESS"}'
-  chorify delete tasks <project-id> <task-id>
-  chorify task-context <task-id>
-  chorify task-report <task-id> '{"summary":"..."}'
-  chorify raw GET /api/v1/...
+AI PMS CLI
+  aipms auth login [--api-key <key>] [--base-url URL]
+  aipms doctor [--json] | context
+  aipms list projects
+  aipms list tasks <project-id>
+  aipms get tasks <project-id> <task-id>
+  aipms create tasks <project-id> '{"title":"..."}'
+  aipms update tasks <project-id> <task-id> '{"status":"IN_PROGRESS"}'
+  aipms delete tasks <project-id> <task-id>
+  aipms task-context <task-id>
+  aipms task-report <task-id> '{"summary":"..."}'
+  aipms raw GET /api/v1/...
 
 Resources: projects, requirements, tasks, bugs, versions, releases,
 members, milestones, files, folders, teams, notifications, audit-logs.
 Guide: ${baseUrl}/cli/guide
 HELP
     ;;
-  *) echo "Unknown command: $cmd. Run chorify help." >&2; exit 2 ;;
+  *) echo "Unknown command: $cmd. Run aipms help." >&2; exit 2 ;;
 esac
-CHORIFY_CLI
+AIPMS_CLI
 
-chmod +x "$BIN_DIR/chorify"
+chmod +x "$BIN_DIR/aipms"
+BASE_URL="${baseUrl}"
+install_skill
 case ":$PATH:" in *":$BIN_DIR:"*) ;; *) echo "Add to PATH: export PATH=\"$BIN_DIR:\$PATH\"";; esac
-echo "Chorify CLI installed: $BIN_DIR/chorify"
-echo "Next: chorify auth login --api-key <your-key>"
+echo "AIPMS CLI installed: $BIN_DIR/aipms"
+echo "Configuration directory: $INSTALL_DIR"
+echo "Opening $BASE_URL so you can create/copy an API Key..."
+open_site "$BASE_URL"
+printf 'Paste the API Key shown by the website (input hidden): '
+read -r -s API_KEY; echo
+API_KEY="$(printf '%s' "$API_KEY" | tr -d '\r\n')"
+[ -n "$API_KEY" ] || { echo "API Key is required; rerun this installer." >&2; exit 2; }
+umask 077
+printf 'BASE_URL=%q\nAPI_KEY=%q\n' "$BASE_URL" "$API_KEY" > "$INSTALL_DIR/config"
+echo "Configuration saved locally at $INSTALL_DIR/config"
+echo "Running capability checks..."
+if "$BIN_DIR/aipms" doctor; then
+  echo "Capability checks completed."
+else
+  echo "API Key validation failed or the server is unavailable." >&2
+  exit 1
+fi
 echo "Guide: ${baseUrl}/cli/guide"
 `;
 }
@@ -146,7 +225,7 @@ export async function GET(request: Request) {
     headers: {
       "Content-Type": "text/x-shellscript; charset=utf-8",
       "Cache-Control": "public, max-age=300",
-      "Content-Disposition": "inline; filename=install-chorify.sh",
+      "Content-Disposition": "inline; filename=install-aipms.sh",
     },
   });
 }
