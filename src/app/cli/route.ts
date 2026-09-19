@@ -42,11 +42,15 @@ CONFIG_FILE="$(resolve_config)"
 
 read_config() {
   BASE_URL="$DEFAULT_BASE_URL"
-  API_KEY="\${AIPMS_API_KEY:-}"
+  API_KEY=""
   if [ -f "$CONFIG_FILE" ]; then
     # shellcheck disable=SC1090
     . "$CONFIG_FILE"
   fi
+  # Environment variables win over the saved file, so an exported
+  # AIPMS_API_KEY / AIPMS_BASE_URL still works in a directory that already has
+  # a config instead of being silently overwritten by it.
+  API_KEY="\${AIPMS_API_KEY:-$API_KEY}"
   BASE_URL="\${AIPMS_BASE_URL:-$BASE_URL}"
 }
 
@@ -63,11 +67,19 @@ need_auth() {
 request() {
   method="$1"; path="$2"; data="\${3:-}"; idem="\${4:-}"
   need_auth
-  args=(-fsSL -X "$method" -H "Authorization: Bearer $API_KEY" -H 'Accept: application/json')
+  args=(-sS -X "$method" -H "Authorization: Bearer $API_KEY" -H 'Accept: application/json')
   if [ -n "$data" ]; then args+=(-H 'Content-Type: application/json' --data-binary "$data"); fi
   if [ -n "$idem" ]; then args+=(-H "Idempotency-Key: $idem"); fi
-  curl "\${args[@]}" "$BASE_URL$path"
+  # Print the body even when the request fails: curl -f swallows it, leaving
+  # only "HTTP 400" and hiding which field the server rejected.
+  body="$(mktemp)"
+  code="$(curl "\${args[@]}" -o "$body" -w '%{http_code}' "$BASE_URL$path" || printf '000')"
+  cat "$body"; rm -f "$body"
   echo
+  case "$code" in
+    2*|3*) return 0 ;;
+    *) echo "Request failed: HTTP $code" >&2; return 1 ;;
+  esac
 }
 
 probe() {

@@ -128,9 +128,9 @@ Codex 在个人 API Key 授权范围内读取和执行
 
 ## AIPMS CLI 与 Agent Skill
 
-安装脚本会自动检测运行环境：Linux/macOS 使用 Bash，Windows 使用 PowerShell。它不会自动注册设备、创建租户或生成 API Key，而是打开网站让用户创建或复制 API Key 后粘贴到隐藏输入中；凭据保存到 `~/.aipms/config`（权限 600），skill 保存到当前目录的 `.agents/skills/aipms-project-operations/SKILL.md`。
+安装分两个入口：Linux/macOS 用 Bash 脚本，Windows 用 PowerShell 脚本。安装器不会自动注册设备、创建租户或生成 API Key，而是打开网站让用户创建或复制 API Key 后粘贴到隐藏输入中；凭据保存到 `~/.aipms/config`（Linux/macOS 权限 600，Windows 上通过文件 ACL 限制为当前用户），skill 保存到当前目录的 `.agents/skills/aipms-project-operations/SKILL.md`。
 
-CLI 按以下顺序解析凭据：`AIPMS_CONFIG` 环境变量 → 当前目录的 `.aipms/config` → `~/.aipms/config`。所以安装一次即可在任意目录使用；如果某个工作区需要独立的 Key，在该工作区放一份 `.aipms/config` 覆盖全局配置即可。
+CLI 按以下顺序解析凭据：`AIPMS_CONFIG` 环境变量 → 当前目录的 `.aipms/config` → `~/.aipms/config`。`AIPMS_API_KEY` 与 `AIPMS_BASE_URL` **优先级高于配置文件**，所以可以在已有配置的目录里临时切换身份。安装一次即可在任意目录使用；如果某个工作区需要独立的 Key，在该工作区放一份 `.aipms/config` 覆盖全局配置即可。
 
 使用示例：
 
@@ -153,6 +153,8 @@ Windows PowerShell 使用：
 irm https://aipms.sligenai.cn/cli/install.ps1 | iex
 aipms doctor --json
 ```
+
+Windows 上 CLI 安装为 `%USERPROFILE%\.aipms\aipms.ps1`，并在 `%USERPROFILE%\.local\bin` 生成 `aipms.cmd` 代理，所以在 cmd.exe 和 PowerShell 里都能直接调用 `aipms`；安装器会把这个目录写进用户 PATH，新开终端后生效。命令与 Bash 版本完全一致。
 
 安装完成后，当前目录会生成 `.agents/skills/aipms-project-operations/SKILL.md`，凭据写在 `~/.aipms/config`。如果工作区里放了 `.aipms/config` 覆盖全局凭据，不要把它提交到 Git。
 

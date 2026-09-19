@@ -8,12 +8,20 @@ AIPMS CLI 让真人用户授权的 AI/Codex 通过 API Key 查询和操作项目
 
 ## 一键安装
 
+Linux / macOS：
+
 \`\`\`bash
 curl -fsSL ${origin}/cli | bash
 export PATH="$HOME/.local/bin:$PATH"
 \`\`\`
 
-安装脚本会按系统类型选择安装方式：Linux/macOS 使用 Bash，Windows 使用 PowerShell。它会打开 ${origin}，请在网页中创建或复制 API Key，然后粘贴到安装程序的隐藏输入中。脚本不会自动注册设备、创建租户或生成 API Key；它会把凭据保存到 \`~/.aipms/config\`，并把 skill 保存到当前目录的 \`.agents/skills/aipms-project-operations/SKILL.md\`。
+Windows PowerShell：
+
+\`\`\`powershell
+irm ${origin}/cli/install.ps1 | iex
+\`\`\`
+
+安装器会打开 ${origin}，请在网页中创建或复制 API Key，然后粘贴到安装程序的隐藏输入中。脚本不会自动注册设备、创建租户或生成 API Key；它会把凭据保存到 \`~/.aipms/config\`（Windows 上是 \`%USERPROFILE%\\.aipms\\config\`），并把 skill 保存到当前目录的 \`.agents/skills/aipms-project-operations/SKILL.md\`。Windows 上还会在 \`%USERPROFILE%\\.local\\bin\` 生成 \`aipms.cmd\` 代理并写入用户 PATH，新开终端后 cmd.exe 与 PowerShell 都能直接调用。
 
 凭据按 \`AIPMS_CONFIG\` 环境变量 → 当前目录 \`.aipms/config\` → \`~/.aipms/config\` 的顺序解析，因此安装一次即可在任意目录使用；需要独立 Key 的工作区放一份本地 \`.aipms/config\` 即可覆盖全局。
 
@@ -27,7 +35,7 @@ aipms doctor --json
 aipms context
 \`\`\`
 
-也可不落盘，通过环境变量运行：
+也可不落盘，通过环境变量运行（环境变量优先于已保存的配置文件，可用于临时切换身份）：
 
 \`\`\`bash
 export AIPMS_API_KEY='chp_xxx'

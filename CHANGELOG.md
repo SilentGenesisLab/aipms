@@ -14,23 +14,22 @@
 - 新增 Agent Skill 支持：安装器会拉取 `/cli/skill` 并把 `SKILL.md` 写入 `.agents/skills/aipms-project-operations/SKILL.md`，供 AI 工具直接读取项目操作规范。
 - 新增 `aipms doctor --json`：以 JSON 输出身份、工作上下文、项目、团队、通知、审计日志六项只读能力探测结果；403 表示当前 Key 缺少该项权限，不做绕过。
 - 安装流程改为交互式：不再要求命令行传入 `--api-key`，安装器打开网站，用户在隐藏输入中粘贴 Key，避免密钥进入 shell 历史。
-- `/cli/skill` 与 `/cli/install.ps1` 加入公开路由白名单，安装前无需登录即可获取。
+- 新增 Windows 安装入口 `/cli/install.ps1`，以 PowerShell 实现与 Bash 版对等的安装流程：CLI 本体装在 `%USERPROFILE%\.aipms\aipms.ps1`，并在 `%USERPROFILE%\.local\bin` 生成 `aipms.cmd` 代理、写入用户 PATH，cmd.exe 与 PowerShell 都能直接调用。凭据文件在 Windows 上用文件 ACL 限制为当前用户。
+- 新增 `/cli/ps1`，提供 PowerShell 版 CLI 本体，子命令与 Bash 版逐一对应。
+- `/cli` 及其全部子路径加入公开路由白名单，安装前无需登录即可获取。
 
 ### 修复
 
 - 修正 `aipms help` 与 `/cli/guide` 中会直接返回 400 的示例：创建任务缺少必填的 `acceptanceCriteria` 与 `priority`，创建需求缺少 `acceptanceCriteria` 与 `status`，提交工作汇报缺少必填的 `completedItems` 与 `verification`。
 - `aipms task-accept` 此前可用但未出现在 `aipms help` 输出中，现已补上。
 - `/cli/guide` 中残留的 “Chorify” 文案改为 “AIPMS”。
+- 修复 `AIPMS_API_KEY` / `AIPMS_BASE_URL` 被配置文件静默覆盖的问题：原先先读环境变量、再加载配置文件，后者会覆盖前者，导致文档里「通过环境变量运行」在已有配置的目录中实际无效。现在环境变量优先，两个平台行为一致。
+- CLI 在请求失败时会打印服务端返回的错误体并以非零码退出。此前 Bash 版使用 `curl -f`，响应体被丢弃，用户只看到 `curl: (22) ... 400`，看不到服务端说明是哪个字段不合法。
 
 ### 文档
 
 - README 新增「AIPMS CLI 与 Agent Skill」章节，给出 Linux/macOS 与 Windows 两套安装示例，并说明凭据解析顺序与本地覆盖用法。
-- `/cli/guide` 使用说明随更名与凭据调整同步更新。
-
-### 已知问题
-
-- Windows 安装入口 `https://aipms.sligenai.cn/cli/install.ps1` 在 README 与 `/cli/guide` 中均有引用，但**对应路由尚未实现**，实际返回 404。当前 Windows 用户无法使用文档给出的安装方式。
-- `/cli/install.ps1` 已加入公开白名单，暂时没有实际作用。
+- `/cli/guide` 使用说明随更名、凭据调整与 Windows 安装入口同步更新。
 
 ## 2026-09-16
 

@@ -13,7 +13,10 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/members" || pathname.startsWith("/members/")) return NextResponse.redirect(new URL(pathname.replace(/^\/members/, "/teams"), request.url), 308);
   const isInvitePage = pathname.startsWith("/invite/");
   const isSharePage = pathname.startsWith("/share/");
-  const isPublic = PUBLIC_PAGES.has(pathname) || pathname === "/cli" || pathname === "/cli/guide" || pathname === "/cli/skill" || pathname === "/cli/install.ps1" || pathname.startsWith("/token-usage/") || isInvitePage || isSharePage || pathname.startsWith("/api/invites/") || pathname.startsWith("/api/shares/") || PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  // Every /cli asset (installer, guide, skill, per-platform CLI) is meant to be
+  // fetched before the user has an account, so match the prefix rather than
+  // listing routes and having a new one silently land behind the login wall.
+  const isPublic = PUBLIC_PAGES.has(pathname) || pathname === "/cli" || pathname.startsWith("/cli/") || pathname.startsWith("/token-usage/") || isInvitePage || isSharePage || pathname.startsWith("/api/invites/") || pathname.startsWith("/api/shares/") || PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const userId = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (!userId && !isPublic) {
