@@ -2,7 +2,7 @@ function cliScript(baseUrl: string) {
   return `#!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_DIR="\${AIPMS_HOME:-$PWD/.aipms}"
+INSTALL_DIR="\${AIPMS_HOME:-$HOME/.aipms}"
 BIN_DIR="\${AIPMS_BIN_DIR:-$HOME/.local/bin}"
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 chmod 700 "$INSTALL_DIR" 2>/dev/null || true
@@ -26,8 +26,19 @@ install_skill() {
 cat > "$BIN_DIR/aipms" <<'AIPMS_CLI'
 #!/usr/bin/env bash
 set -euo pipefail
-CONFIG_FILE="\${AIPMS_CONFIG:-$PWD/.aipms/config}"
+CONFIG_FILE=""
 DEFAULT_BASE_URL="${baseUrl}"
+
+# Credentials resolve in this order: an explicit AIPMS_CONFIG, then a
+# .aipms/config in the working directory, then the per-user ~/.aipms/config
+# that the installer writes. A directory-local file wins so a workspace can
+# hold its own key, while a plain install keeps working from any directory.
+resolve_config() {
+  if [ -n "\${AIPMS_CONFIG:-}" ]; then printf '%s\\n' "$AIPMS_CONFIG"; return; fi
+  if [ -f "$PWD/.aipms/config" ]; then printf '%s\\n' "$PWD/.aipms/config"; return; fi
+  printf '%s\\n' "\${AIPMS_HOME:-$HOME/.aipms}/config"
+}
+CONFIG_FILE="$(resolve_config)"
 
 read_config() {
   BASE_URL="$DEFAULT_BASE_URL"
@@ -175,11 +186,12 @@ AI PMS CLI
   aipms list projects
   aipms list tasks <project-id>
   aipms get tasks <project-id> <task-id>
-  aipms create tasks <project-id> '{"title":"..."}'
+  aipms create tasks <project-id> '{"title":"...","acceptanceCriteria":"...","priority":"HIGH"}'
   aipms update tasks <project-id> <task-id> '{"status":"IN_PROGRESS"}'
   aipms delete tasks <project-id> <task-id>
   aipms task-context <task-id>
-  aipms task-report <task-id> '{"summary":"..."}'
+  aipms task-report <task-id> '{"summary":"...","completedItems":["..."],"verification":"..."}'
+  aipms task-accept <task-id> '{"decision":"PASS","conclusion":"...","verificationEvidence":"..."}'
   aipms raw GET /api/v1/...
 
 Resources: projects, requirements, tasks, bugs, versions, releases,

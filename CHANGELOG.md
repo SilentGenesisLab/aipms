@@ -9,16 +9,23 @@
 ### 新增
 
 - CLI 更名为 `aipms`（原 `chorify`），所有子命令与帮助文本同步更新。
-- 凭据位置调整：配置由 `~/.chorify/config` 改为**执行安装命令的当前目录**下的 `.aipms/config`（权限 600），环境变量由 `CHORIFY_*` 改为 `AIPMS_*`。这样每个工作区可以独立持有一份 Key。
+- 环境变量由 `CHORIFY_*` 改为 `AIPMS_*`。
+- 凭据解析改为**本地优先、回退全局**：`AIPMS_CONFIG` 环境变量 → 当前目录 `.aipms/config` → `~/.aipms/config`（权限均为 600）。安装器把凭据写到 `~/.aipms/config`，因此装一次即可在任意目录使用；需要独立 Key 的工作区放一份本地 `.aipms/config` 即可覆盖全局。
 - 新增 Agent Skill 支持：安装器会拉取 `/cli/skill` 并把 `SKILL.md` 写入 `.agents/skills/aipms-project-operations/SKILL.md`，供 AI 工具直接读取项目操作规范。
 - 新增 `aipms doctor --json`：以 JSON 输出身份、工作上下文、项目、团队、通知、审计日志六项只读能力探测结果；403 表示当前 Key 缺少该项权限，不做绕过。
 - 安装流程改为交互式：不再要求命令行传入 `--api-key`，安装器打开网站，用户在隐藏输入中粘贴 Key，避免密钥进入 shell 历史。
 - `/cli/skill` 与 `/cli/install.ps1` 加入公开路由白名单，安装前无需登录即可获取。
 
+### 修复
+
+- 修正 `aipms help` 与 `/cli/guide` 中会直接返回 400 的示例：创建任务缺少必填的 `acceptanceCriteria` 与 `priority`，创建需求缺少 `acceptanceCriteria` 与 `status`，提交工作汇报缺少必填的 `completedItems` 与 `verification`。
+- `aipms task-accept` 此前可用但未出现在 `aipms help` 输出中，现已补上。
+- `/cli/guide` 中残留的 “Chorify” 文案改为 “AIPMS”。
+
 ### 文档
 
-- README 新增「AIPMS CLI 与 Agent Skill」章节，给出 Linux/macOS 与 Windows 两套安装示例，并说明不要把 `.aipms/config` 提交到 Git。
-- `/cli/guide` 使用说明随更名同步更新。
+- README 新增「AIPMS CLI 与 Agent Skill」章节，给出 Linux/macOS 与 Windows 两套安装示例，并说明凭据解析顺序与本地覆盖用法。
+- `/cli/guide` 使用说明随更名与凭据调整同步更新。
 
 ### 已知问题
 
@@ -152,4 +159,4 @@
 
 ---
 
-> 说明：以上 2026-08-27 至 2026-09-16 的条目依据提交历史整理；2026-09-20 条目对应提交 `feat: rename CLI to aipms and add agent skill`。
+> 说明：以上 2026-08-27 至 2026-09-16 的条目依据提交历史整理；2026-09-20 条目对应 `feat: rename CLI to aipms and add agent skill` 与 `fix: let the CLI keep working outside its install directory` 两个提交。

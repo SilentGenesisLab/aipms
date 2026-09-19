@@ -128,7 +128,9 @@ Codex 在个人 API Key 授权范围内读取和执行
 
 ## AIPMS CLI 与 Agent Skill
 
-安装脚本会自动检测运行环境：Linux/macOS 使用 Bash，Windows 使用 PowerShell。它不会自动注册设备、创建租户或生成 API Key，而是打开网站让用户创建或复制 API Key 后粘贴到隐藏输入中；配置保存到执行安装命令时的当前目录 `.aipms/config`（权限 600），skill 保存到 `.agents/skills/aipms-project-operations/SKILL.md`。
+安装脚本会自动检测运行环境：Linux/macOS 使用 Bash，Windows 使用 PowerShell。它不会自动注册设备、创建租户或生成 API Key，而是打开网站让用户创建或复制 API Key 后粘贴到隐藏输入中；凭据保存到 `~/.aipms/config`（权限 600），skill 保存到当前目录的 `.agents/skills/aipms-project-operations/SKILL.md`。
+
+CLI 按以下顺序解析凭据：`AIPMS_CONFIG` 环境变量 → 当前目录的 `.aipms/config` → `~/.aipms/config`。所以安装一次即可在任意目录使用；如果某个工作区需要独立的 Key，在该工作区放一份 `.aipms/config` 覆盖全局配置即可。
 
 使用示例：
 
@@ -152,7 +154,7 @@ irm https://aipms.sligenai.cn/cli/install.ps1 | iex
 aipms doctor --json
 ```
 
-安装完成后，当前目录会生成 `.aipms/config` 和 `.agents/skills/aipms-project-operations/SKILL.md`。不要提交 `.aipms/config` 到 Git。
+安装完成后，当前目录会生成 `.agents/skills/aipms-project-operations/SKILL.md`，凭据写在 `~/.aipms/config`。如果工作区里放了 `.aipms/config` 覆盖全局凭据，不要把它提交到 Git。
 
 `doctor --json` 会探测身份、工作上下文、项目、团队、通知和审计日志等只读能力。403 仅表示当前 API Key 没有对应权限，不会被安装器绕过。
 
