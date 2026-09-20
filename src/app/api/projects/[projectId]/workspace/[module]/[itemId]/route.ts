@@ -17,6 +17,7 @@ const baseSchemas = {
     priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
     status: z.string().min(1).max(30).optional(),
     targetVersionId: ids,
+    ownerId: ids,
     participantIds: z.array(opaqueId).optional(),
     plannedStartAt: z.string().datetime().nullable().optional(),
     dueAt: z.string().datetime().nullable().optional(),
@@ -144,7 +145,7 @@ export async function PATCH(
   );
   if (participantIds.some((id) => !projectMemberIds.has(id)))
     return NextResponse.json({ error: "参与人必须是项目成员" }, { status: 400 });
-  if (module === "versions" && ownerId && ownerId !== userId && !projectMemberIds.has(ownerId))
+  if ((module === "versions" || module === "requirements") && ownerId && ownerId !== userId && !projectMemberIds.has(ownerId))
     return NextResponse.json({ error: "负责人必须是项目成员" }, { status: 400 });
   if (module === "versions" && fileIds.length) {
     const count = await prisma.fileAsset.count({ where: { id: { in: fileIds }, projectId, deletedAt: null } });
@@ -190,7 +191,7 @@ export async function PATCH(
         : []),
     ]);
   } else if (module === "requirements") {
-    const { participantIds: _participantIds, ...requirementData } = data;
+    const { participantIds: _participantIds, ownerId, ...requirementData } = data;
     void _participantIds;
     const existing = await prisma.requirement.findUnique({ where: { id: itemId }, select: { closedAt: true, startedAt: true, plannedStartAt: true, dueAt: true, status: true } });
     const requirementScheduleError = validateSchedule(
@@ -203,6 +204,7 @@ export async function PATCH(
       where: { id: itemId },
       data: {
         ...requirementData,
+        ...(ownerId === undefined ? {} : { owner: ownerId ? { connect: { id: ownerId } } : { disconnect: true } }),
         ...(data.status === undefined ? {} : {
           closedAt: data.status === "DONE" ? existing?.closedAt || new Date() : null,
           startedAt: nextStartedAt(existing?.startedAt || null, existing?.status || null, String(data.status), "requirement"),

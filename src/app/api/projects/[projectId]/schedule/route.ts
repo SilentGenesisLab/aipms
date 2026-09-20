@@ -58,6 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: { projectId },
       include: {
         requester: { select: { id: true, name: true, avatarColor: true } },
+        owner: { select: { id: true, name: true, avatarColor: true } },
         participants: { include: { user: { select: { id: true, name: true, avatarColor: true } } } },
         targetVersion: { select: { id: true, name: true } },
       },
@@ -67,9 +68,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     prisma.projectMember.findMany({ where: { projectId }, select: { user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } }),
   ]);
   const now = new Date();
-  const overlaps = (start: Date | null, end: Date | null) => start && end
-    ? start < to && end >= from
-    : includeUnscheduled;
+  // 只填了一端（线上绝大多数就是只填截止时间）也算已排期：按落在那一端的那一天取值，
+  // 而不是当成「没排期」塞进 includeUnscheduled 的兜底里。
+  const overlaps = (start: Date | null, end: Date | null) => {
+    if (!start && !end) return includeUnscheduled;
+    return (start || end!) < to && (end || start!) >= from;
+  };
   const tasks = rawTasks.filter((task) =>
     (!statuses.size || statuses.has(task.status)) &&
     (!assigneeId || task.assigneeId === assigneeId) &&
@@ -78,7 +82,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const visibleTaskIds = new Set(tasks.map((task) => task.id));
   const result = requirements.flatMap((requirement) => {
     const children = tasks.filter((task) => task.requirementId === requirement.id);
-    const visible = (!statuses.size || statuses.has(requirement.status)) && (!assigneeId || requirement.requesterId === assigneeId) && overlaps(requirement.plannedStartAt, requirement.dueAt);
+    const visible = (!statuses.size || statuses.has(requirement.status)) && (!assigneeId || requirement.ownerId === assigneeId) && overlaps(requirement.plannedStartAt, requirement.dueAt);
     if (!visible && !children.length) return [];
     const allChildren = rawTasks.filter((task) => task.requirementId === requirement.id);
     const completed = allChildren.filter((task) => task.status === "DONE" || task.status === "ACCEPTED").length;
@@ -99,6 +103,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       health: scheduleHealth(requirement, now),
       progress: allChildren.length ? Math.round(completed / allChildren.length * 100) : null,
       requester: requirement.requester,
+      owner: requirement.owner,
       participants: requirement.participants.map(({ user }) => user),
       targetVersion: requirement.targetVersion,
       tasks: children.map((task) => serializeTask(task, now)),

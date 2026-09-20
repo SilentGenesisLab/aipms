@@ -18,6 +18,7 @@ import {
 import { SelectField } from "@/components/ui/select-field";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { DeploymentCenter } from "@/components/deployment-center";
+import { fromScheduleInput, toScheduleInput } from "@/lib/schedule-time";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -168,7 +169,6 @@ const fmt = (value: unknown) =>
         timeStyle: "short",
       }).format(new Date(String(value)))
     : "—";
-const iso = (value: string) => (value ? new Date(value).toISOString() : null);
 const dateKey = (value: unknown) => {
   if (!value) return "";
   const date = new Date(String(value));
@@ -184,7 +184,7 @@ function rowMeta(module: Module, item: Item) {
   if (module === "tasks")
     return `${code}负责人：${relatedName(item.assignee)} · 提交：${fmt(item.submittedAt)} · 截止：${fmt(item.dueAt)}`;
   if (module === "requirements")
-    return `${code}需求人：${relatedName(item.requester)} · 创建：${fmt(item.createdAt)} · 关闭：${fmt(item.closedAt)}`;
+    return `${code}负责人：${relatedName(item.owner)} · 需求人：${relatedName(item.requester)} · 创建：${fmt(item.createdAt)}`;
   if (module === "versions") {
     const participants = Array.isArray(item.participants) ? item.participants.length : 0;
     return `负责人：${relatedName(item.owner)} · ${participants} 位参与人 · 计划发布：${fmt(item.plannedAt)}`;
@@ -478,7 +478,9 @@ function Editor({
     const payload = { ...form };
     for (const k of ["plannedStartAt", "dueAt", "plannedAt", "releasedAt"])
       if (k in payload)
-        payload[k] = iso(payload[k] as string) as unknown as string;
+        payload[k] = fromScheduleInput(payload[k] as string) as unknown as string;
+    // 未选负责人时 select 给的是 ""，而 schema 只接受 id 或 null（"" 过不了 min(1)）。
+    if (payload.ownerId === "") payload.ownerId = null as unknown as string;
     try {
       const url = `/api/projects/${projectId}/workspace/${module}${item ? `/${item.id}` : ""}`;
       const r = await fetch(url, {
@@ -699,6 +701,13 @@ function Fields({
         <>
           <DateRangeField title="需求排期" includeTime start={form.plannedStartAt as string} end={form.dueAt as string} onChange={value=>{set("plannedStartAt",value.start);set("dueAt",value.end)}} />
           <LookupSelect
+            label="负责人"
+            value={form.ownerId as string}
+            set={(v) => set("ownerId", v)}
+            items={data.members}
+            optional
+          />
+          <LookupSelect
             label="目标版本"
             value={form.targetVersionId as string}
             set={(v) => set("targetVersionId", v)}
@@ -821,8 +830,7 @@ function Fields({
 
 function initial(module: Module, item: Item | null): FormState {
   const d: Record<string, unknown> = item || {};
-  const dt = (v: unknown) =>
-    v ? new Date(String(v)).toISOString().slice(0, 16) : "";
+  const dt = (value: unknown) => toScheduleInput(value as string | null | undefined);
   if (module === "versions")
     return {
       name: String(d.name || ""),
@@ -856,6 +864,7 @@ function initial(module: Module, item: Item | null): FormState {
         (module === "tasks" ? "TODO" : module === "bugs" ? "NEW" : "DRAFT"),
     ),
     targetVersionId: String(d.targetVersionId || ""),
+    ownerId: String(d.ownerId || ""),
     requirementId: String(d.requirementId || ""),
     versionId: String(d.versionId || ""),
     assigneeId: String(d.assigneeId || ""),

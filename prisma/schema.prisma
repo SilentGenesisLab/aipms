@@ -241,6 +241,7 @@ model User {
   createdShares               FileShare[]                  @relation("ShareCreator")
   uploadSessions              FileUploadSession[]
   requestedRequirements       Requirement[]                @relation("RequirementRequester")
+  ownedRequirements           Requirement[]                @relation("RequirementOwner")
   requirementParticipations   RequirementParticipant[]
   ownedVersions               Version[]                    @relation("VersionOwner")
   versionParticipations       VersionParticipant[]
@@ -581,6 +582,7 @@ model Requirement {
   status             String
   targetVersionId    String?
   requesterId        String?
+  ownerId            String?
   plannedStartAt     DateTime?
   dueAt              DateTime?
   startedAt          DateTime?
@@ -588,6 +590,7 @@ model Requirement {
   project            Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   targetVersion      Version?                 @relation(fields: [targetVersionId], references: [id])
   requester          User?                    @relation("RequirementRequester", fields: [requesterId], references: [id])
+  owner              User?                    @relation("RequirementOwner", fields: [ownerId], references: [id])
   participants       RequirementParticipant[]
   tasks              Task[]
   bugs               Bug[]
@@ -596,6 +599,7 @@ model Requirement {
 
   @@index([projectId, plannedStartAt])
   @@index([projectId, dueAt])
+  @@index([projectId, ownerId])
 }
 
 model RequirementParticipant {

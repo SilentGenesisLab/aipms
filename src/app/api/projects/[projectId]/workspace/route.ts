@@ -20,6 +20,7 @@ export async function GET(
         include: {
           targetVersion: { select: { id: true, name: true } },
           requester: { select: { id: true, name: true } },
+          owner: { select: { id: true, name: true } },
           participants: { include: { user: { select: { id: true, name: true } } } },
           _count: { select: { tasks: true, bugs: true } },
         },

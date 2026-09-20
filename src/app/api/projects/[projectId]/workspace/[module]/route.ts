@@ -17,6 +17,7 @@ const schemas = {
     priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
     status: z.string().trim().min(1).max(30),
     targetVersionId: optionalId,
+    ownerId: optionalId,
     participantIds: z.array(opaqueId).default([]),
     plannedStartAt: z.string().datetime().nullable().optional(),
     dueAt: z.string().datetime().nullable().optional(),
@@ -135,7 +136,7 @@ export async function POST(
   );
   if (participantIds.some((id) => !projectMemberIds.has(id)))
     return NextResponse.json({ error: "参与人必须是项目成员" }, { status: 400 });
-  if (module === "versions" && ownerId && ownerId !== userId && !projectMemberIds.has(ownerId))
+  if ((module === "versions" || module === "requirements") && ownerId && ownerId !== userId && !projectMemberIds.has(ownerId))
     return NextResponse.json({ error: "负责人必须是项目成员" }, { status: 400 });
   if (module === "versions" && fileIds.length) {
     const count = await prisma.fileAsset.count({ where: { id: { in: fileIds }, projectId, deletedAt: null } });
@@ -145,7 +146,7 @@ export async function POST(
   const code = `${(await prisma.project.findUniqueOrThrow({ where: { id: projectId }, select: { code: true } })).code}-${Date.now().toString().slice(-8)}`;
   let item: { id: string };
   if (module === "requirements") {
-    const { participantIds: _participantIds, targetVersionId, ...requirementData } = data;
+    const { participantIds: _participantIds, targetVersionId, ownerId, ...requirementData } = data;
     void _participantIds;
     item = await prisma.requirement.create({
       data: {
@@ -153,6 +154,7 @@ export async function POST(
         code,
         project: { connect: { id: projectId } },
         requester: { connect: { id: userId } },
+        owner: ownerId ? { connect: { id: ownerId } } : undefined,
         targetVersion: targetVersionId ? { connect: { id: targetVersionId as string } } : undefined,
         closedAt: data.status === "DONE" ? new Date() : null,
         startedAt: nextStartedAt(null, null, String(data.status), "requirement"),

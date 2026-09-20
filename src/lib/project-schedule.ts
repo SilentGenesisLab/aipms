@@ -56,15 +56,21 @@ export function shiftSchedulePeriod(value: Date | string, zoom: ScheduleZoom, am
   return fromShanghaiParts(target.getUTCFullYear(), target.getUTCMonth() + 1);
 }
 
-export function scheduleHealth(input: { status: string; dueAt: Date | null; closedAt: Date | null }, now = new Date()) {
-  if (!input.dueAt) return "UNSCHEDULED" as const;
+const PENDING_STATUSES = new Set(["TODO", "DRAFT", "REVIEW", "APPROVED"]);
+
+export function scheduleHealth(input: { status: string; dueAt: Date | null; plannedStartAt?: Date | null; closedAt: Date | null }, now = new Date()) {
+  if (!input.dueAt) {
+    // 只填了计划开始的企业里也有（表单一端就能存）。没有截止日就判不了临期/逾期，
+    // 但只要有一端就算已排期，不能报「未排期」再在旁边报个临期。
+    if (!input.plannedStartAt) return "UNSCHEDULED" as const;
+    if (input.closedAt) return "COMPLETED" as const;
+    return PENDING_STATUSES.has(input.status) ? "NOT_STARTED" as const : "IN_PROGRESS" as const;
+  }
   const dueDay = calendarDate(input.dueAt), today = calendarDate(now);
   if (input.closedAt) return calendarDate(input.closedAt) > dueDay ? "COMPLETED_LATE" as const : "COMPLETED" as const;
   if (dueDay < today) return "OVERDUE" as const;
   if (dueDay - today <= 3 * DAY_MS) return "AT_RISK" as const;
-  return input.status === "TODO" || input.status === "DRAFT" || input.status === "REVIEW" || input.status === "APPROVED"
-    ? "NOT_STARTED" as const
-    : "IN_PROGRESS" as const;
+  return PENDING_STATUSES.has(input.status) ? "NOT_STARTED" as const : "IN_PROGRESS" as const;
 }
 
 export function hasDependencyConflict(task: { plannedStartAt: Date | null; dependencies: Array<{ dependsOn: { dueAt: Date | null; status: string } }> }) {
