@@ -45,7 +45,7 @@ async function auditDenied(auth: ApiPrincipal | null, request: Request, message:
 }
 
 async function rateLimited(auth: ApiPrincipal, request: Request, highRisk: boolean) {
-  const limit = highRisk ? 5 : request.method === "GET" || request.method === "HEAD" ? 120 : 30;
+  const limit = highRisk ? 100 : request.method === "GET" || request.method === "HEAD" ? 120 : 30;
   const count = await prisma.auditLog.count({
     where: {
       userId: auth.userId,
