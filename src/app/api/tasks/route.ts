@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
       where: {
         projectId: { in: projectIds },
         OR: [{ assigneeId: userId }, { acceptorId: userId, status: "PENDING_ACCEPTANCE" }],
+        status: { notIn: completed },
       },
     }),
     prisma.task.count({
@@ -97,6 +98,7 @@ export async function GET(request: NextRequest) {
         createdById: userId,
         assigneeId: { not: null },
         NOT: { assigneeId: userId },
+        status: { notIn: completed },
       },
     }),
     prisma.project.findMany({
