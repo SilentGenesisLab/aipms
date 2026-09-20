@@ -6,7 +6,7 @@ export const API_TOKEN_PERMISSIONS = [
   "project:read", "project:create", "project:update", "project:delete", "project:member:manage",
   "milestone:read", "milestone:create", "milestone:update", "milestone:delete",
   "requirement:read", "requirement:create", "requirement:update", "requirement:delete",
-  "task:read", "task:create", "task:update", "task:delete", "task:report", "task:accept",
+  "task:read", "task:create", "task:update", "task:delete", "task:report", "task:accept", "task:force_close",
   "bug:read", "bug:create", "bug:update", "bug:delete",
   "version:read", "version:create", "version:update", "version:delete",
   "release:read", "release:create", "release:update", "release:delete", "release:finalize",
@@ -27,7 +27,7 @@ export const API_PERMISSION_GROUPS: ReadonlyArray<{
   { key: "project", label: "项目", permissions: ["project:read", "project:create", "project:update", "project:delete", "project:member:manage"] },
   { key: "milestone", label: "里程碑", permissions: ["milestone:read", "milestone:create", "milestone:update", "milestone:delete"] },
   { key: "requirement", label: "需求", permissions: ["requirement:read", "requirement:create", "requirement:update", "requirement:delete"] },
-  { key: "task", label: "任务", permissions: ["task:read", "task:create", "task:update", "task:delete", "task:report", "task:accept"] },
+  { key: "task", label: "任务", permissions: ["task:read", "task:create", "task:update", "task:delete", "task:report", "task:accept", "task:force_close"] },
   { key: "bug", label: "Bug", permissions: ["bug:read", "bug:create", "bug:update", "bug:delete"] },
   { key: "version", label: "版本与发布", permissions: ["version:read", "version:create", "version:update", "version:delete", "release:read", "release:create", "release:update", "release:delete", "release:finalize"] },
   { key: "file", label: "文件与文档", permissions: ["file:read", "file:create", "file:update", "file:delete", "file:share", "file:link", "document:read", "document:write"] },
@@ -41,7 +41,7 @@ export const API_PERMISSION_LABELS: Record<ApiTokenPermission, string> = {
   "project:read": "查看项目", "project:create": "创建项目", "project:update": "修改项目", "project:delete": "删除项目", "project:member:manage": "管理项目成员",
   "milestone:read": "查看里程碑", "milestone:create": "创建里程碑", "milestone:update": "修改里程碑", "milestone:delete": "删除里程碑",
   "requirement:read": "查看需求", "requirement:create": "创建需求", "requirement:update": "修改需求", "requirement:delete": "删除需求",
-  "task:read": "查看任务", "task:create": "创建任务", "task:update": "修改任务", "task:delete": "删除任务", "task:report": "提交工作汇报", "task:accept": "任务验收",
+  "task:read": "查看任务", "task:create": "创建任务", "task:update": "修改任务", "task:delete": "删除任务", "task:report": "提交工作汇报", "task:accept": "任务验收", "task:force_close": "强制关闭任务（仅项目所有者）",
   "bug:read": "查看 Bug", "bug:create": "创建 Bug", "bug:update": "修改 Bug", "bug:delete": "删除 Bug",
   "version:read": "查看版本", "version:create": "创建版本", "version:update": "修改版本", "version:delete": "删除版本",
   "release:read": "查看发布记录", "release:create": "创建发布记录", "release:update": "修改发布记录", "release:delete": "删除发布记录", "release:finalize": "确认发布结论",
@@ -51,7 +51,7 @@ export const API_PERMISSION_LABELS: Record<ApiTokenPermission, string> = {
 
 export const HIGH_RISK_API_PERMISSIONS: ApiTokenPermission[] = [
   "team:member:manage", "team:invite:manage", "project:delete", "project:member:manage",
-  "milestone:delete", "requirement:delete", "task:delete", "task:accept", "bug:delete",
+  "milestone:delete", "requirement:delete", "task:delete", "task:accept", "task:force_close", "bug:delete",
   "version:delete", "release:delete", "release:finalize", "file:delete", "file:share",
 ];
 

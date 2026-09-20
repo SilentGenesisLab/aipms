@@ -96,7 +96,7 @@ export async function buildProjectActivityMetrics(projectId: string, weekStart: 
     if (!row) continue;
     if (isFileAction(log.action)) row.files++;
     else if (log.action === "SUBMIT_REPORT") row.reports++;
-    else if (log.action.includes("ACCEPT") || log.action === "CLOSE_TASK" || log.action === "REJECT_TASK_ACCEPTANCE") row.acceptances++;
+    else if (log.action.includes("ACCEPT") || log.action === "CLOSE_TASK" || log.action === "REJECT_TASK_ACCEPTANCE" || log.action === "FORCE_CLOSE_TASK") row.acceptances++;
     else if (log.action.startsWith("CREATE_")) row.created++;
     else row.updated++;
   }

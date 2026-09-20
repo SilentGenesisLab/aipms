@@ -119,8 +119,11 @@ Codex 在个人 API Key 授权范围内读取和执行
 - `PATCH /api/v1/tasks/:taskId`：快捷调整优先级或合法状态，需要 `task:update`
 - `POST /api/v1/tasks/:taskId/reports`：需要 `task:report`
 - `POST /api/v1/tasks/:taskId/acceptances`：仅指定验收人可通过闭环或退回，需要 `task:accept` 和 `Idempotency-Key`
+- `POST /api/v1/tasks/:taskId/force-close`：仅项目创建者（项目所有者）可跳过交接直接闭环，需要 `task:force_close` 和 `Idempotency-Key`
 
 创建任务时应提交从项目成员中解析出的明确 `assigneeId`。未指定验收人时，系统优先使用关联需求的提出者，没有关联需求时使用任务创建人；验收通过后任务直接闭环为 `DONE`。
+
+项目创建者可以用 `task:force_close` 跳过「汇报 → 验收」交接：任务直接置为 `DONE`，同时在任务详情写入一条结果为 `FORCE_CLOSED`（显示为“项目创建者强制关闭”）的验收记录和一条 `FORCE_CLOSE_TASK` 操作日志，因此跳过的是交接流程而非留痕。请求体需要 `reason`（3–3000 字），非项目所有者返回 403，已闭环任务返回 409。该权限属于高风险权限，接口限速 5 次/分钟，批量关闭时需按此节奏串行调用。
 
 令牌支持多项目和细粒度权限。业务接口同时校验用户项目成员身份、令牌项目范围和所需权限。已预留 `project:*`、`requirement:*`、`task:*`、`bug:*`、`version:*`、`file:*` 和 `document:*` 权限命名空间。
 
@@ -145,6 +148,7 @@ aipms doctor --json
 aipms context
 aipms list projects
 aipms list tasks <project-id>
+aipms task-force-close <task-id> '{"reason":"项目范围调整，交付物另行归档"}'
 ```
 
 `context` 默认返回本人全部待办的完整字段，任务多时用 `--status`、`--project`、`--fields`、`--limit` 收窄，例如 `aipms context --status PENDING_ACCEPTANCE --fields code,title,dueAt`。`list tasks <project-id>` 的每条任务已含 `status`、`submittedAt` 与 `_count.reports`，判断「哪些待验收、有没有交报告」一次调用即可。

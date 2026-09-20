@@ -69,6 +69,7 @@ aipms update tasks <project-id> <task-id> '{"status":"IN_PROGRESS"}'
 aipms task-context <task-id>
 aipms task-report <task-id> '{"summary":"已完成登录页","completedItems":["实现登录表单","接入短信验证码"],"verification":"构建与测试通过"}'
 aipms task-accept <task-id> '{"decision":"PASS","conclusion":"验收标准已满足","verificationEvidence":"测试与交付物均已核对"}'
+aipms task-force-close <task-id> '{"reason":"项目范围调整，交付物另行归档"}'
 \`\`\`
 
 支持资源：projects、requirements、tasks、bugs、versions、releases、members、milestones、files、folders、teams、notifications、audit-logs。
@@ -79,6 +80,20 @@ aipms task-accept <task-id> '{"decision":"PASS","conclusion":"验收标准已满
 aipms raw GET /api/v1/me/work-context
 aipms raw PATCH /api/v1/projects/<project-id> '{"description":"新的项目简介"}'
 \`\`\`
+
+## 强制关闭任务（仅项目创建者）
+
+项目创建者需要跳过「汇报 → 验收」交接直接闭环时，使用 \`task-force-close\`。它跳过的只是交接流程，不跳过留痕：任务直接置为已完成，并在任务详情里写入一条结果为「项目创建者强制关闭」的验收记录和一条 \`FORCE_CLOSE_TASK\` 操作日志。
+
+\`\`\`bash
+aipms task-force-close <task-id> '{"reason":"项目范围调整，交付物另行归档"}'
+\`\`\`
+
+- 需要在 API Key 上勾选「强制关闭任务（仅项目所有者）」权限（\`task:force_close\`）。
+- 调用者必须是该项目的所有者，即项目创建者；仅项目成员或管理员会返回 403。
+- 已闭环（已完成/已通过）的任务返回 409，不重复写入记录。
+- \`reason\` 必填，3–3000 个字符，用于说明为什么跳过交接。
+- 属于高风险权限，限速 5 次/分钟：批量关闭多条任务时按此节奏调用，不要并发。
 
 ## 给 AI 的最短指令
 

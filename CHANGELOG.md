@@ -18,6 +18,8 @@
 - 新增 `/cli/ps1`，提供 PowerShell 版 CLI 本体，子命令与 Bash 版逐一对应。
 - `/cli` 及其全部子路径加入公开路由白名单，安装前无需登录即可获取。
 - `aipms context` 新增 `--project`、`--status`、`--fields`、`--limit` 四个参数：按项目（id 或 code）与状态在服务端过滤，并可把返回字段投影到指定的几项；响应新增 `total` 表示过滤后命中的总数。此前 `context` 固定返回本人全部待办的完整字段，实测 35 条任务约 53 KB，调用方无法内联阅读，只能落盘后二次处理。两个平台的 CLI 均已支持，传参顺序不限。
+- 新增 `task:force_close` 权限与 `POST /api/v1/tasks/:taskId/force-close` 接口：项目创建者（项目所有者）可以跳过「汇报 → 验收」交接，直接把任务闭环为已完成。跳过的是交接流程而不是留痕——任务置为 `DONE` 的同时写入一条结果为 `FORCE_CLOSED` 的验收记录和一条 `FORCE_CLOSE_TASK` 操作日志。请求体 `reason` 必填（3–3000 字）；非项目所有者返回 403，已闭环任务返回 409。该权限属于高风险权限，接口限速 5 次/分钟，批量关闭需按此节奏串行调用。
+- 「任务」权限分组新增「强制关闭任务（仅项目所有者）」选项，随权限目录自动出现在权限选择、筛选和 Key 详情中；两个平台的 CLI 新增 `aipms task-force-close <task-id> '{"reason":"..."}'`。
 
 ### 修复
 
@@ -26,11 +28,15 @@
 - `/cli/guide` 中残留的 “Chorify” 文案改为 “AIPMS”。
 - 修复 `AIPMS_API_KEY` / `AIPMS_BASE_URL` 被配置文件静默覆盖的问题：原先先读环境变量、再加载配置文件，后者会覆盖前者，导致文档里「通过环境变量运行」在已有配置的目录中实际无效。现在环境变量优先，两个平台行为一致。
 - CLI 在请求失败时会打印服务端返回的错误体并以非零码退出。此前 Bash 版使用 `curl -f`，响应体被丢弃，用户只看到 `curl: (22) ... 400`，看不到服务端说明是哪个字段不合法。
+- 任务详情的验收记录此前把除 `PASS` 外的一切结果都显示为「退回修改」，新增的 `FORCE_CLOSED` 结果会被误标为退回；现在改为结果到文案的映射表，`FORCE_CLOSED` 显示「项目创建者强制关闭」。
+- 项目活跃度统计把 `FORCE_CLOSE_TASK` 计入成员的「验收」动作，此前强制关闭的任务不计入任何一列。
+- 修复 CLI 发送非 ASCII 请求体时内容被破坏的问题，两个平台各有一条不同的成因：Windows PowerShell 5.1 用 ANSI 代码页编码字符串请求体，中文会被写成 `?`；Git Bash 下把 JSON 当参数传给 curl 时，MSYS 的参数转换会把中文变成替换字符。现在 PowerShell 版改为发送 UTF-8 字节并在 `Content-Type` 上写明 `charset=utf-8`，Bash 版改为把请求体写入临时文件后用 `--data-binary @file` 交给 curl。此前 `task-report`、`task-accept` 等所有带中文的写操作在 Windows 上都会静默丢字，服务端收到的是一串问号。
 
 ### 文档
 
 - README 新增「AIPMS CLI 与 Agent Skill」章节，给出 Linux/macOS 与 Windows 两套安装示例，并说明凭据解析顺序与本地覆盖用法。
 - `/cli/guide` 使用说明随更名、凭据调整与 Windows 安装入口同步更新。
+- README 与 `/cli/guide` 补充强制关闭任务的权限要求、请求体、错误码与限速说明；Agent Skill 增加约束：强制关闭只能由项目所有者在真人明确授权下使用，不得当作「完工」的捷径。
 
 ## 2026-09-16
 

@@ -77,7 +77,10 @@ function Invoke-AipmsRequest {
   $uri = $script:BaseUrl + $Path
   try {
     if ($Body) {
-      $response = Invoke-WebRequest -Method $Method -Uri $uri -Headers $headers -ContentType "application/json" -Body $Body -UseBasicParsing
+      # Send the body as UTF-8 bytes: Windows PowerShell 5.1 encodes a string body
+      # with the ANSI code page, which turns every Chinese character into "?".
+      $bytes = [System.Text.Encoding]::UTF8.GetBytes($Body)
+      $response = Invoke-WebRequest -Method $Method -Uri $uri -Headers $headers -ContentType "application/json; charset=utf-8" -Body $bytes -UseBasicParsing
     } else {
       $response = Invoke-WebRequest -Method $Method -Uri $uri -Headers $headers -UseBasicParsing
     }
@@ -141,6 +144,7 @@ function Show-AipmsHelp {
   Write-Output "  aipms task-context <task-id>"
   Write-Output "  aipms task-report <task-id> '{""summary"":""..."",""completedItems"":[""...""],""verification"":""...""}'"
   Write-Output "  aipms task-accept <task-id> '{""decision"":""PASS"",""conclusion"":""..."",""verificationEvidence"":""...""}'"
+  Write-Output "  aipms task-force-close <task-id> '{""reason"":""...""}'"
   Write-Output "  aipms raw GET /api/v1/..."
   Write-Output ""
   Write-Output "Resources: projects, requirements, tasks, bugs, versions, releases,"
@@ -273,6 +277,10 @@ switch ($Command) {
   "task-accept" {
     if ($Rest.Count -lt 2) { Write-AipmsError "task id and JSON body required"; exit 2 }
     Invoke-AipmsRequest -Method POST -Path ("/api/v1/tasks/" + $Rest[0] + "/acceptances") -Body $Rest[1] -IdempotencyKey (New-IdempotencyKey)
+  }
+  "task-force-close" {
+    if ($Rest.Count -lt 2) { Write-AipmsError "task id and JSON body required"; exit 2 }
+    Invoke-AipmsRequest -Method POST -Path ("/api/v1/tasks/" + $Rest[0] + "/force-close") -Body $Rest[1] -IdempotencyKey (New-IdempotencyKey)
   }
   "raw" {
     if ($Rest.Count -lt 2) { Write-AipmsError "usage: aipms raw <METHOD> <path> ['<json>']"; exit 2 }

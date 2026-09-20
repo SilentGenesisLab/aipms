@@ -1,8 +1,9 @@
-import type { Priority, TaskStatus } from "@prisma/client";
+import type { Priority, ProjectRole, TaskStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProjectAccess } from "@/lib/project-permissions";
 import { createsDependencyCycle, nextStartedAt, validateSchedule } from "@/lib/project-schedule";
+import { currentApiActor } from "@/lib/api-request-context";
 
 export const opaqueId = z.string().trim().min(1, "关联记录不能为空").max(191, "关联记录 ID 过长");
 export const optionalOpaqueId = opaqueId.nullable().optional();
@@ -48,6 +49,10 @@ export const taskAcceptanceSchema = z.object({
   decision: z.enum(["PASS", "NEEDS_CHANGES"]),
   conclusion: z.string().trim().min(3).max(3000),
   verificationEvidence: z.string().trim().min(3).max(5000),
+});
+
+export const taskForceCloseSchema = z.object({
+  reason: z.string().trim().min(3, "强制关闭原因至少 3 个字符").max(3000),
 });
 
 type TaskWriteData = Partial<z.infer<typeof taskFieldsSchema>>;
@@ -210,6 +215,50 @@ export async function acceptTask(taskId: string, userId: string, input: z.infer<
     return created;
   });
   return { ok: true, value: acceptance };
+}
+
+export const FORCE_CLOSED_ACCEPTANCE_RESULT = "FORCE_CLOSED";
+
+// Only the project creator — the member holding the OWNER role — may close a task
+// without the handover; managers and assignees still go through acceptance.
+export const canForceCloseTask = (access: { projectMember: { role: ProjectRole } | null } | null) =>
+  access?.projectMember?.role === "OWNER";
+
+// Closing without the report-and-acceptance handover still writes an acceptance
+// row, under a result the normal flow never produces, so the task timeline shows
+// who closed it and why instead of ending without any record.
+export async function forceCloseTask(taskId: string, userId: string, input: z.infer<typeof taskForceCloseSchema>): Promise<WorkflowResult<{ id: string; status: TaskStatus; closedAt: Date }>> {
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  if (!task) return failure("任务不存在", 404);
+  const access = await getProjectAccess(task.projectId, userId);
+  if (!access?.canAccess) return failure("任务不存在或无权访问", 404);
+  if (!canForceCloseTask(access)) return failure("只有项目创建者（项目所有者）可以强制关闭任务", 403);
+  if (["ACCEPTED", "DONE"].includes(task.status)) return failure("任务已闭环，无需强制关闭", 409);
+
+  const now = new Date();
+  const closed = await prisma.$transaction(async (tx) => {
+    await tx.acceptance.create({
+      data: { taskId, reviewerId: userId, result: FORCE_CLOSED_ACCEPTANCE_RESULT, comment: input.reason, verification: "" },
+    });
+    const updated = await tx.task.update({
+      where: { id: taskId },
+      data: { status: "DONE", startedAt: task.startedAt || now, completedAt: now, firstCompletedAt: task.firstCompletedAt || now, closedAt: now },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId,
+        projectId: task.projectId,
+        actorType: "USER",
+        action: "FORCE_CLOSE_TASK",
+        resource: "TASK",
+        resourceId: taskId,
+        channel: currentApiActor() ? "API_KEY" : "WEB",
+        metadata: { projectId: task.projectId, fromStatus: task.status, reason: input.reason, result: "SUCCESS" },
+      },
+    });
+    return updated;
+  });
+  return { ok: true, value: { id: closed.id, status: closed.status, closedAt: closed.closedAt || now } };
 }
 
 export function taskDetailPermissions(task: { assigneeId: string | null; acceptorId: string | null; status: TaskStatus }, userId: string, canWrite: boolean) {

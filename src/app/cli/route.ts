@@ -68,13 +68,22 @@ request() {
   method="$1"; path="$2"; data="\${3:-}"; idem="\${4:-}"
   need_auth
   args=(-sS -X "$method" -H "Authorization: Bearer $API_KEY" -H 'Accept: application/json')
-  if [ -n "$data" ]; then args+=(-H 'Content-Type: application/json' --data-binary "$data"); fi
+  payload=""
+  if [ -n "$data" ]; then
+    # Hand the body to curl through a file rather than an argument: on Windows the
+    # MSYS argument conversion rewrites non-ASCII characters, so a Chinese summary
+    # or reason would reach the server as replacement characters.
+    payload="$(mktemp)"
+    printf '%s' "$data" > "$payload"
+    args+=(-H 'Content-Type: application/json' --data-binary "@$payload")
+  fi
   if [ -n "$idem" ]; then args+=(-H "Idempotency-Key: $idem"); fi
   # Print the body even when the request fails: curl -f swallows it, leaving
   # only "HTTP 400" and hiding which field the server rejected.
   body="$(mktemp)"
   code="$(curl "\${args[@]}" -o "$body" -w '%{http_code}' "$BASE_URL$path" || printf '000')"
   cat "$body"; rm -f "$body"
+  if [ -n "$payload" ]; then rm -f "$payload"; fi
   echo
   case "$code" in
     2*|3*) return 0 ;;
@@ -199,6 +208,7 @@ case "$cmd" in
   task-context) request GET "/api/v1/tasks/\${1:?task id required}/context" ;;
   task-report) request POST "/api/v1/tasks/\${1:?task id required}/reports" "\${2:?JSON body required}" "aipms-$(date +%s)-$RANDOM" ;;
   task-accept) request POST "/api/v1/tasks/\${1:?task id required}/acceptances" "\${2:?JSON body required}" "aipms-$(date +%s)-$RANDOM" ;;
+  task-force-close) request POST "/api/v1/tasks/\${1:?task id required}/force-close" "\${2:?JSON body required}" "aipms-$(date +%s)-$RANDOM" ;;
   raw)
     method="\${1:?method required}"; path="\${2:?path required}"; data="\${3:-}"
     request "$method" "$path" "$data" "aipms-$(date +%s)-$RANDOM"
@@ -218,6 +228,7 @@ AI PMS CLI
   aipms task-context <task-id>
   aipms task-report <task-id> '{"summary":"...","completedItems":["..."],"verification":"..."}'
   aipms task-accept <task-id> '{"decision":"PASS","conclusion":"...","verificationEvidence":"..."}'
+  aipms task-force-close <task-id> '{"reason":"..."}'
   aipms raw GET /api/v1/...
 
 Resources: projects, requirements, tasks, bugs, versions, releases,

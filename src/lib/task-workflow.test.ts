@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opaqueId, taskPatchSchema, taskQuickUpdateSchema, validateTaskStatusTransition } from "@/lib/task-workflow";
+import { canForceCloseTask, opaqueId, taskForceCloseSchema, taskPatchSchema, taskQuickUpdateSchema, validateTaskStatusTransition } from "@/lib/task-workflow";
 
 const task = (overrides: Partial<{ assigneeId: string | null; acceptorId: string | null; status: "TODO" | "IN_PROGRESS" | "PENDING_ACCEPTANCE" | "NEEDS_CHANGES" | "ACCEPTED" | "DONE" }> = {}) => ({
   assigneeId: "owner",
@@ -38,5 +38,19 @@ describe("task workflow", () => {
   it("keeps omitted fields absent in partial task patches", () => {
     const parsed = taskPatchSchema.parse({ priority: "HIGH" });
     expect(parsed).toEqual({ priority: "HIGH" });
+  });
+
+  it("reserves force close for the project owner", () => {
+    expect(canForceCloseTask({ projectMember: { role: "OWNER" } })).toBe(true);
+    expect(canForceCloseTask({ projectMember: { role: "MANAGER" } })).toBe(false);
+    expect(canForceCloseTask({ projectMember: { role: "MEMBER" } })).toBe(false);
+    expect(canForceCloseTask({ projectMember: null })).toBe(false);
+    expect(canForceCloseTask(null)).toBe(false);
+  });
+
+  it("requires a reason for force close", () => {
+    expect(taskForceCloseSchema.safeParse({ reason: "项目范围调整，交付物另行归档" }).success).toBe(true);
+    expect(taskForceCloseSchema.safeParse({ reason: "   " }).success).toBe(false);
+    expect(taskForceCloseSchema.safeParse({}).success).toBe(false);
   });
 });
