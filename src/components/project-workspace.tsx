@@ -870,7 +870,7 @@ function initial(module: Module, item: Item | null): FormState {
     assigneeId: String(d.assigneeId || ""),
     coordinatorId: String(d.coordinatorId || ""),
     acceptorId: String(d.acceptorId || ""),
-    plannedStartAt: dt(d.plannedStartAt),
+    plannedStartAt: dt(d.plannedStartAt) || (module === "requirements" && !item ? toScheduleInput(new Date()) : ""),
     dueAt: dt(d.dueAt),
     taskId: String(d.taskId || ""),
     foundVersionId: String(d.foundVersionId || ""),

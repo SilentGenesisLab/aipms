@@ -191,7 +191,7 @@ export async function PATCH(
         : []),
     ]);
   } else if (module === "requirements") {
-    const { participantIds: _participantIds, ownerId, ...requirementData } = data;
+    const { participantIds: _participantIds, targetVersionId, ownerId, ...requirementData } = data;
     void _participantIds;
     const existing = await prisma.requirement.findUnique({ where: { id: itemId }, select: { closedAt: true, startedAt: true, plannedStartAt: true, dueAt: true, status: true } });
     const requirementScheduleError = validateSchedule(
@@ -204,6 +204,9 @@ export async function PATCH(
       where: { id: itemId },
       data: {
         ...requirementData,
+        // 外键必须走关联写法：Prisma 的 update 入参是「带标量外键的 unchecked」和「带关联的 checked」两个变体取并集，
+        // 同一个对象里既有 owner 又有 targetVersionId 两个变体都匹配不上，会报 Unknown argument targetVersionId。
+        ...(targetVersionId === undefined ? {} : { targetVersion: targetVersionId ? { connect: { id: targetVersionId as string } } : { disconnect: true } }),
         ...(ownerId === undefined ? {} : { owner: ownerId ? { connect: { id: ownerId } } : { disconnect: true } }),
         ...(data.status === undefined ? {} : {
           closedAt: data.status === "DONE" ? existing?.closedAt || new Date() : null,
