@@ -87,10 +87,6 @@ const resources = {
   versions: "VERSION",
   releases: "RELEASE",
 } as const;
-const clean = (data: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(data).map(([k, v]) => [k, v === "" ? null : v]),
-  );
 async function owns(module: string, id: string, projectId: string) {
   if (module === "requirements")
     return prisma.requirement.findFirst({ where: { id, projectId } });
@@ -132,7 +128,8 @@ export async function PATCH(
       { error: parsed.error.issues[0]?.message || "数据不完整" },
       { status: 400 },
     );
-  const data = clean(parsed.data as Record<string, unknown>);
+  // 同创建接口：不把空字符串改写成 null，description 等列不允许 null。
+  const data = parsed.data as Record<string, unknown>;
   if (module === "requirements" || module === "tasks") {
     const scheduleError = validateSchedule(data.plannedStartAt as string | null | undefined, data.dueAt as string | null | undefined);
     if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 400 });

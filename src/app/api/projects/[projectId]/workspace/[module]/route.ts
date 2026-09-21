@@ -81,13 +81,6 @@ const schemas = {
   }),
 } as const;
 
-const clean = (data: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(data).map(([key, value]) => [
-      key,
-      value === "" ? null : value,
-    ]),
-  );
 const moduleResource = {
   requirements: "REQUIREMENT",
   tasks: "TASK",
@@ -123,7 +116,9 @@ export async function POST(
       { error: parsed.error.issues[0]?.message || "数据不完整" },
       { status: 400 },
     );
-  const data = clean(parsed.data as Record<string, unknown>);
+  // 不要把空字符串统一改写成 null：description / notes 这些列不允许 null，留空保存会直接 500。
+  // 可选关联的空串在 schema 里就已经规整成 null 了（见 optionalOpaqueId）。
+  const data = parsed.data as Record<string, unknown>;
   if (module === "requirements" || module === "tasks") {
     const scheduleError = validateSchedule(data.plannedStartAt as string | null | undefined, data.dueAt as string | null | undefined);
     if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 400 });
