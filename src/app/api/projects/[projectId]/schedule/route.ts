@@ -120,7 +120,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     generatedAt: now.toISOString(),
     range: { from: from.toISOString(), to: to.toISOString() },
     permissions: { canWrite: Boolean(access.canManage || (access.projectMember && access.projectMember.role !== "GUEST")) },
-    members: members.map(({ user }) => user),
+    members: members.map(({ user }) => person(user)),
     requirements: result,
     unassignedTasks,
   });
