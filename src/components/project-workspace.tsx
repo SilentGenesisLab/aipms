@@ -479,8 +479,6 @@ function Editor({
     for (const k of ["plannedStartAt", "dueAt", "plannedAt", "releasedAt"])
       if (k in payload)
         payload[k] = fromScheduleInput(payload[k] as string) as unknown as string;
-    // 未选负责人时 select 给的是 ""，而 schema 只接受 id 或 null（"" 过不了 min(1)）。
-    if (payload.ownerId === "") payload.ownerId = null as unknown as string;
     try {
       const url = `/api/projects/${projectId}/workspace/${module}${item ? `/${item.id}` : ""}`;
       const r = await fetch(url, {

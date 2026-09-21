@@ -40,6 +40,13 @@ describe("task workflow", () => {
     expect(parsed).toEqual({ priority: "HIGH" });
   });
 
+  it("reads an empty optional association as 'not linked', and still keeps omitted keys absent", () => {
+    expect(taskPatchSchema.parse({ requirementId: "", versionId: "" })).toEqual({ requirementId: null, versionId: null });
+    expect(taskPatchSchema.parse({ requirementId: "req-1" })).toEqual({ requirementId: "req-1" });
+    expect(taskPatchSchema.parse({ title: "调整后的标题" })).toEqual({ title: "调整后的标题" });
+    expect(taskPatchSchema.safeParse({ requirementId: "   " }).success).toBe(false);
+  });
+
   it("reserves force close for the project owner", () => {
     expect(canForceCloseTask({ projectMember: { role: "OWNER" } })).toBe(true);
     expect(canForceCloseTask({ projectMember: { role: "MANAGER" } })).toBe(false);

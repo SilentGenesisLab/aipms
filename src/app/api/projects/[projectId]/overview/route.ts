@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { loadTeamProfiles, projectNameResolver } from "@/lib/member-name";
 import { getRequestUserId } from "@/lib/team-permissions";
 import { getProjectAccess } from "@/lib/project-permissions";
 import {
@@ -63,6 +64,8 @@ export async function GET(
     },
   });
   if (!project) return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+  // 人员一律显示项目/团队档案里的名字，别露出账号名（见 member-name.ts）。
+  const person = projectNameResolver(project.members.map((member) => ({ userId: member.userId, displayName: member.displayName })), await loadTeamProfiles(project.teamId, project.members.map((member) => member.userId)));
 
   const progress = calculateProjectProgress(project);
   const currentVersion = selectCurrentVersion(project.versions);
@@ -126,11 +129,11 @@ export async function GET(
       startDate: project.startDate,
       endDate: project.endDate,
       team: project.team,
-      owner: owner?.user || null,
+      owner: person(owner?.user ?? null),
     },
     members: project.members.map((member) => ({
       id: member.user.id,
-      name: member.user.name,
+      name: person(member.user).name,
       avatarColor: member.user.avatarColor,
       role: member.role,
     })),
@@ -173,6 +176,7 @@ export async function GET(
       : null,
     milestones: project.milestones.map((item) => ({
       ...item,
+      owner: person(item.owner),
       overdue: !TERMINAL_MILESTONES.has(item.status) && item.dueAt < now,
       upcoming:
         !TERMINAL_MILESTONES.has(item.status) &&
@@ -189,7 +193,7 @@ export async function GET(
         code: item.code,
         title: item.title,
         completedAt: item.completedAt,
-        assignee: item.assignee,
+        assignee: person(item.assignee),
       })),
   });
 }

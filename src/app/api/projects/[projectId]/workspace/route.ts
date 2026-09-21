@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { loadTeamProfiles, projectNameResolver } from "@/lib/member-name";
 import { getRequestUserId } from "@/lib/team-permissions";
 import { getProjectAccess } from "@/lib/project-permissions";
 
@@ -92,14 +93,32 @@ export async function GET(
     ...version,
     fileIds: versionLinks.filter((x) => x.resourceId === version.id).map((x) => x.fileId),
   }));
+  // 只改了人员显示名，id 一律不动（筛选、关联都按 id 走）。不映射的话这里露出的是账号名，
+  // 线上有人注册时填的是拼音，成员管理页显示的却是团队档案里的中文名，同一人两处对不上。
+  const person = projectNameResolver(members, await loadTeamProfiles(access.project.teamId, members.map((member) => member.userId)));
   return NextResponse.json({
     currentUserId: userId,
-    requirements,
-    tasks: tasks.map(({ reports, ...task }) => ({ ...task, submittedAt: reports[0]?.createdAt || null })),
+    requirements: requirements.map((requirement) => ({
+      ...requirement,
+      requester: person(requirement.requester),
+      owner: person(requirement.owner),
+      participants: requirement.participants.map((participant) => ({ ...participant, user: person(participant.user) })),
+    })),
+    tasks: tasks.map(({ reports, ...task }) => ({
+      ...task,
+      assignee: person(task.assignee),
+      coordinator: person(task.coordinator),
+      acceptor: person(task.acceptor),
+      submittedAt: reports[0]?.createdAt || null,
+    })),
     bugs,
-    versions,
+    versions: versions.map((version) => ({
+      ...version,
+      owner: person(version.owner),
+      participants: version.participants.map((participant) => ({ ...participant, user: person(participant.user) })),
+    })),
     releases,
-    members: members.map((x) => ({ ...x.user, role: x.role })),
+    members: members.map((member) => ({ ...person(member.user), role: member.role })),
     files: rawFiles.map((file) => ({ ...file, size: file.size.toString() })),
     permissions: {
       canWrite: Boolean(

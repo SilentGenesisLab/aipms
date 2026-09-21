@@ -6,7 +6,14 @@ import { createsDependencyCycle, nextStartedAt, validateSchedule } from "@/lib/p
 import { currentApiActor } from "@/lib/api-request-context";
 
 export const opaqueId = z.string().trim().min(1, "关联记录不能为空").max(191, "关联记录 ID 过长");
-export const optionalOpaqueId = opaqueId.nullable().optional();
+// 可选关联在表单里「不关联」那一项的值是空串，不是 null。空串过不了 min(1)，于是想把目标版本、
+// 负责人、关联需求等改回「不关联」就存不进去（报「关联记录不能为空」）。这里把空串规整成 null；
+// 只放在可选变体上，必填的 opaqueId 收到空串仍要报错（发布记录必须关联版本）。字段整体缺省时
+// 仍是 undefined，PATCH 不会因为多传一个 null 而把没动的字段清掉。
+export const optionalOpaqueId = z.preprocess(
+  (value) => (value === "" ? null : value),
+  opaqueId.nullable().optional(),
+);
 
 export const taskFieldsSchema = z.object({
   title: z.string().trim().min(2).max(120),

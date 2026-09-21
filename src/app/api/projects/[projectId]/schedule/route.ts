@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadTeamProfiles, projectNameResolver } from "@/lib/member-name";
 import { getProjectAccess } from "@/lib/project-permissions";
 import { naturalDays, hasDependencyConflict, scheduleHealth } from "@/lib/project-schedule";
 import { getRequestUserId } from "@/lib/team-permissions";
@@ -6,7 +7,9 @@ import { prisma } from "@/lib/prisma";
 
 const MAX_RANGE = 366 * 86_400_000;
 
-function serializeTask(task: Awaited<ReturnType<typeof loadTasks>>[number], now: Date) {
+type PersonResolver = ReturnType<typeof projectNameResolver>;
+
+function serializeTask(task: Awaited<ReturnType<typeof loadTasks>>[number], now: Date, person: PersonResolver) {
   return {
     id: task.id,
     code: task.code,
@@ -22,7 +25,7 @@ function serializeTask(task: Awaited<ReturnType<typeof loadTasks>>[number], now:
     actualDays: naturalDays(task.startedAt, task.closedAt || (task.startedAt ? now : null)),
     health: scheduleHealth(task, now),
     dependencyConflict: hasDependencyConflict(task),
-    assignee: task.assignee,
+    assignee: person(task.assignee),
     dependencyIds: task.dependencies.map((item) => item.dependsOnId),
   };
 }
@@ -65,9 +68,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       orderBy: [{ plannedStartAt: "asc" }, { createdAt: "asc" }],
     }),
     loadTasks(projectId),
-    prisma.projectMember.findMany({ where: { projectId }, select: { user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } }),
+    prisma.projectMember.findMany({ where: { projectId }, select: { displayName: true, user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } }),
   ]);
   const now = new Date();
+  // 同工作区：负责人/提出者一律走团队档案里的中文名，别把账号名（zhimingzeng）露出来。id 不变，
+  // 「全部负责人」筛选仍是按 id 过滤。
+  const person = projectNameResolver(members.map((member) => ({ userId: member.user.id, displayName: member.displayName })), await loadTeamProfiles(access.project.teamId, members.map((member) => member.user.id)));
   // 只填了一端（线上绝大多数就是只填截止时间）也算已排期：按落在那一端的那一天取值，
   // 而不是当成「没排期」塞进 includeUnscheduled 的兜底里。
   const overlaps = (start: Date | null, end: Date | null) => {
@@ -102,14 +108,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       actualDays: naturalDays(requirement.startedAt, requirement.closedAt || (requirement.startedAt ? now : null)),
       health: scheduleHealth(requirement, now),
       progress: allChildren.length ? Math.round(completed / allChildren.length * 100) : null,
-      requester: requirement.requester,
-      owner: requirement.owner,
-      participants: requirement.participants.map(({ user }) => user),
+      requester: person(requirement.requester),
+      owner: person(requirement.owner),
+      participants: requirement.participants.map(({ user }) => person(user)),
       targetVersion: requirement.targetVersion,
-      tasks: children.map((task) => serializeTask(task, now)),
+      tasks: children.map((task) => serializeTask(task, now, person)),
     }];
   });
-  const unassignedTasks = tasks.filter((task) => !task.requirementId && visibleTaskIds.has(task.id)).map((task) => serializeTask(task, now));
+  const unassignedTasks = tasks.filter((task) => !task.requirementId && visibleTaskIds.has(task.id)).map((task) => serializeTask(task, now, person));
   return NextResponse.json({
     generatedAt: now.toISOString(),
     range: { from: from.toISOString(), to: to.toISOString() },
